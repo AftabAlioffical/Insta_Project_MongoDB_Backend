@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - InstaShare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --admin-bg: #f4f6fb;
+            --admin-primary: #0a2342;
+            --admin-accent: #f97316;
+            --admin-soft: #e2e8f0;
+            --admin-card: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(circle at 10% 20%, #fff7ed 0%, #eef2ff 45%, #f8fafc 100%);
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            color: #1f2937;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100vh;
+            background: linear-gradient(160deg, var(--admin-primary) 0%, #1e3a8a 60%, #0f172a 100%);
+            color: #fff;
+            padding: 22px 16px;
+            overflow-y: auto;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px 16px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 16px;
+        }
+
+        .brand i {
+            font-size: 28px;
+            color: #fbbf24;
+        }
+
+        .brand h5 {
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        .nav-link-admin {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #cbd5e1;
+            text-decoration: none;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link-admin:hover,
+        .nav-link-admin.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.14);
+            transform: translateX(2px);
+        }
+
+        .main {
+            margin-left: 260px;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .topbar {
+            background: rgba(255, 255, 255, 0.86);
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .card-stat {
+            background: var(--admin-card);
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 8px 20px rgba(2, 6, 23, 0.06);
+        }
+
+        .card-stat .label {
+            color: #64748b;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .card-stat .value {
+            font-size: 30px;
+            font-weight: 700;
+            color: var(--admin-primary);
+        }
+
+        .box {
+            background: var(--admin-card);
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 20px rgba(2, 6, 23, 0.06);
+        }
+
+        .box-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .role-pill {
+            display: inline-block;
+            border-radius: 999px;
+            font-size: 12px;
+            padding: 4px 10px;
+            font-weight: 600;
+        }
+
+        .role-admin { background: #fee2e2; color: #b91c1c; }
+        .role-creator { background: #dcfce7; color: #166534; }
+        .role-consumer { background: #e0e7ff; color: #3730a3; }
+
+        .table td, .table th {
+            vertical-align: middle;
+        }
+
+        .actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .roles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .role-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+        }
+
+        .role-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 16px rgba(102,126,234,0.15);
+            transform: translateY(-2px);
+        }
+
+        .role-card.active {
+            border-color: #667eea;
+            background: #f5f3ff;
+        }
+
+        .role-card .click-hint {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+
+        /* Role users expanded panel */
+        #roleUsersPanel {
+            display: none;
+            margin-top: 16px;
+        }
+
+        #roleUsersPanel .role-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .user-avatar-sm {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-avatar-placeholder {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .small-muted {
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+            }
+
+            .main {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="brand">
+            <i class="bi bi-shield-lock"></i>
+            <div>
+                <h5>Admin Control</h5>
+                <small class="text-light">InstaShare</small>
+            </div>
+        </div>
+
+        <a href="#" class="nav-link-admin active" data-panel="overviewPanel"><i class="bi bi-speedometer2"></i> Overview</a>
+        <a href="#" class="nav-link-admin" data-panel="usersPanel"><i class="bi bi-people"></i> Users CRUD</a>
+        <a href="#" class="nav-link-admin" data-panel="postsPanel"><i class="bi bi-images"></i> Posts CRUD</a>
+        <a href="#" class="nav-link-admin" data-panel="commentsPanel"><i class="bi bi-chat-left-text"></i> Comments CRUD</a>
+        <a href="#" class="nav-link-admin" data-panel="likesPanel"><i class="bi bi-heart"></i> Likes CRUD</a>
+        <a href="#" class="nav-link-admin" data-panel="rolesPanel"><i class="bi bi-sliders"></i> Role Design</a>
+
+        <hr class="border-light opacity-50">
+        <a href="#" class="nav-link-admin" onclick="adminLogout()"><i class="bi bi-box-arrow-right"></i> Logout</a>
+    </aside>
+
+    <main class="main">
+        <div class="topbar">
+            <div>
+                <h4 class="mb-0">Admin Dashboard</h4>
+                <small class="small-muted">Full CRUD: users, posts, comments, likes, role controls</small>
+            </div>
+            <div><strong id="adminName">Loading...</strong></div>
+        </div>
+
+        <section id="overviewPanel" class="panel active">
+            <div class="stats-grid">
+                <div class="card-stat"><div class="label">Total Users</div><div class="value" id="statUsers">0</div></div>
+                <div class="card-stat"><div class="label">Total Posts</div><div class="value" id="statPosts">0</div></div>
+                <div class="card-stat"><div class="label">Total Comments</div><div class="value" id="statComments">0</div></div>
+                <div class="card-stat"><div class="label">Total Likes</div><div class="value" id="statLikes">0</div></div>
+            </div>
+            <div class="box">
+                <h5 class="mb-1">System Summary</h5>
+                <p class="small-muted mb-0" id="overviewSummary">Loading...</p>
+            </div>
+        </section>
+
+        <section id="usersPanel" class="panel">
+            <div class="box">
+                <div class="box-header">
+                    <h5 class="mb-0">Users Management</h5>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="usersSearch" class="form-control" placeholder="Search users" style="width: 220px;">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#userModal" onclick="openNewUserModal()"><i class="bi bi-plus"></i> Add User</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle">
+                        <thead>
+                            <tr><th>ID</th><th>Email</th><th>Role</th><th>Created</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="usersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="postsPanel" class="panel">
+            <div class="box">
+                <div class="box-header">
+                    <h5 class="mb-0">Posts Management</h5>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="postsSearch" class="form-control" placeholder="Search posts" style="width: 220px;">
+                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#uploadPostModal"><i class="bi bi-upload"></i> Create Post</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle">
+                        <thead>
+                            <tr><th>ID</th><th>Title</th><th>Creator</th><th>Type</th><th>Comments</th><th>Likes</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="postsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="commentsPanel" class="panel">
+            <div class="box">
+                <div class="box-header">
+                    <h5 class="mb-0">Comments Management</h5>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="commentsSearch" class="form-control" placeholder="Search comments" style="width: 220px;">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#commentModal" onclick="openNewCommentModal()"><i class="bi bi-plus"></i> Add Comment</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle">
+                        <thead>
+                            <tr><th>ID</th><th>Post</th><th>User</th><th>Text</th><th>Created</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="commentsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="likesPanel" class="panel">
+            <div class="box">
+                <div class="box-header">
+                    <h5 class="mb-0">Likes Management</h5>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="likesSearch" class="form-control" placeholder="Search likes" style="width: 220px;">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#likeModal" onclick="openNewLikeModal()"><i class="bi bi-plus"></i> Add Like</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle">
+                        <thead>
+                            <tr><th>ID</th><th>Post</th><th>User</th><th>Created</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="likesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="rolesPanel" class="panel">
+            <div class="box">
+                <div class="box-header">
+                    <h5 class="mb-0">Role Design & Assignment</h5>
+                    <small class="text-muted">Click a role card to view & manage its users</small>
+                </div>
+                <div class="roles-grid" id="rolesGrid"></div>
+
+                <!-- Expanded users panel for selected role -->
+                <div id="roleUsersPanel">
+                    <div class="role-panel-header">
+                        <h6 class="mb-0">Users with role: <span id="rolePanelTitle" class="fw-bold"></span></h6>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="closeRoleUsersPanel()"><i class="bi bi-x-lg"></i> Close</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Avatar</th>
+                                    <th>ID</th>
+                                    <th>Email</th>
+                                    <th>Display Name</th>
+                                    <th>Joined</th>
+                                    <th>Current Role</th>
+                                    <th>Change Role</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roleUsersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <hr>
+                <h6>Quick Assign Role</h6>
+                <form id="quickRoleForm" class="row g-2">
+                    <div class="col-md-4">
+                        <input type="number" id="quickRoleUserId" class="form-control" placeholder="User ID" required>
+                    </div>
+                    <div class="col-md-4">
+                        <select id="quickRoleRole" class="form-select" required>
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="CREATOR">CREATOR</option>
+                            <option value="CONSUMER">CONSUMER</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-warning w-100" type="submit">Update Role</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <div class="modal fade" id="userModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="userModalTitle">Create User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="userIdField">
+                    <div class="mb-2">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="userEmailField" class="form-control" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="userPasswordField" class="form-control" placeholder="Required for create, optional for update">
+                    </div>
+                    <div>
+                        <label class="form-label">Role</label>
+                        <select id="userRoleField" class="form-select">
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="CREATOR">CREATOR</option>
+                            <option value="CONSUMER">CONSUMER</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveUser()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="uploadPostModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="uploadPostForm" enctype="multipart/form-data">
+                        <div class="mb-2">
+                            <label class="form-label">Photo or Video</label>
+                            <input type="file" id="postFileField" class="form-control" accept="image/*,video/*" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Title</label>
+                            <input type="text" id="postTitleField" class="form-control" maxlength="255">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Caption</label>
+                            <textarea id="postCaptionField" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Location</label>
+                            <input type="text" id="postLocationField" class="form-control" maxlength="255">
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Tags (comma separated)</label>
+                            <input type="text" id="postTagsField" class="form-control" placeholder="john, emma">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-success" onclick="createPost()">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="postEditModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editPostIdField">
+                    <div class="mb-2">
+                        <label class="form-label">Title</label>
+                        <input type="text" id="editPostTitleField" class="form-control" maxlength="255">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Caption</label>
+                        <textarea id="editPostCaptionField" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Location</label>
+                        <input type="text" id="editPostLocationField" class="form-control" maxlength="255">
+                    </div>
+                    <div>
+                        <label class="form-label">Type</label>
+                        <select id="editPostTypeField" class="form-select">
+                            <option value="image">image</option>
+                            <option value="video">video</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" onclick="savePost()">Update</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="commentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="commentModalTitle">Create Comment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="commentIdField">
+                    <div class="mb-2">
+                        <label class="form-label">Post ID</label>
+                        <input type="number" id="commentMediaIdField" class="form-control" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">User ID</label>
+                        <input type="number" id="commentUserIdField" class="form-control" placeholder="Optional on create">
+                    </div>
+                    <div>
+                        <label class="form-label">Text</label>
+                        <textarea id="commentTextField" class="form-control" rows="4" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveComment()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="likeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="likeModalTitle">Create Like</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="likeIdField">
+                    <div class="mb-2">
+                        <label class="form-label">Post ID</label>
+                        <input type="number" id="likeMediaIdField" class="form-control" required>
+                    </div>
+                    <div>
+                        <label class="form-label">User ID</label>
+                        <input type="number" id="likeUserIdField" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveLike()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { logout } from './assets/js/auth.js';
+
+        const token = () => localStorage.getItem('token');
+
+        window.adminLogout = () => {
+            logout();
+        };
+
+        async function apiRequest(url, method = 'GET', body = null, isForm = false) {
+            const headers = {
+                'Authorization': `Bearer ${token()}`
+            };
+
+            if (!isForm) {
+                headers['Content-Type'] = 'application/json';
+            }
+
+            const response = await fetch(url, {
+                method,
+                headers,
+                body: body ? (isForm ? body : JSON.stringify(body)) : null
+            });
+
+            const text = await response.text();
+            let parsed = {};
+            try {
+                parsed = text ? JSON.parse(text) : {};
+            } catch (err) {
+                parsed = { success: false, error: { message: text || 'Invalid server response' } };
+            }
+
+            if (!response.ok || parsed.success === false) {
+                const message = parsed?.error?.message || parsed?.message || 'Request failed';
+                throw new Error(message);
+            }
+
+            return parsed;
+        }
+
+        function roleClass(role) {
+            const r = (role || '').toUpperCase();
+            if (r === 'ADMIN') return 'role-pill role-admin';
+            if (r === 'CREATOR') return 'role-pill role-creator';
+            return 'role-pill role-consumer';
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function showPanel(panelId) {
+            document.querySelectorAll('.nav-link-admin').forEach(link => {
+                link.classList.toggle('active', link.dataset.panel === panelId);
+            });
+
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(panelId).classList.add('active');
+
+            if (panelId === 'overviewPanel') loadOverview();
+            if (panelId === 'usersPanel') loadUsers();
+            if (panelId === 'postsPanel') loadPosts();
+            if (panelId === 'commentsPanel') loadComments();
+            if (panelId === 'likesPanel') loadLikes();
+            if (panelId === 'rolesPanel') loadRoles();
+        }
+
+        async function checkAdminAccess() {
+            if (!token()) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            try {
+                const me = await apiRequest('/api/auth/me');
+                const user = me.data || {};
+                if ((user.role || '').toUpperCase() !== 'ADMIN') {
+                    alert('Access denied. Admin only.');
+                    window.location.href = '/consumer-feed.html';
+                    return;
+                }
+
+                const merged = { ...(JSON.parse(localStorage.getItem('user') || '{}')), ...user, role: (user.role || '').toUpperCase() };
+                localStorage.setItem('user', JSON.stringify(merged));
+                document.getElementById('adminName').textContent = user.email || 'Admin';
+                loadOverview();
+            } catch (err) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login.html';
+            }
+        }
+
+        async function loadOverview() {
+            try {
+                const [users, posts, comments, likes] = await Promise.all([
+                    apiRequest('/api/admin/users?limit=1'),
+                    apiRequest('/api/admin/posts?limit=1'),
+                    apiRequest('/api/admin/comments?limit=1'),
+                    apiRequest('/api/admin/likes?limit=1')
+                ]);
+
+                document.getElementById('statUsers').textContent = users.pagination?.total ?? 0;
+                document.getElementById('statPosts').textContent = posts.pagination?.total ?? 0;
+                document.getElementById('statComments').textContent = comments.pagination?.total ?? 0;
+                document.getElementById('statLikes').textContent = likes.pagination?.total ?? 0;
+                document.getElementById('overviewSummary').textContent = `Users: ${users.pagination?.total ?? 0}, Posts: ${posts.pagination?.total ?? 0}, Comments: ${comments.pagination?.total ?? 0}, Likes: ${likes.pagination?.total ?? 0}`;
+            } catch (err) {
+                document.getElementById('overviewSummary').textContent = err.message;
+            }
+        }
+
+        async function loadUsers() {
+            const q = document.getElementById('usersSearch').value.trim();
+            const data = await apiRequest(`/api/admin/users?limit=200&q=${encodeURIComponent(q)}`);
+            const rows = (data.data || []).map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${escapeHtml(user.email)}</td>
+                    <td><span class="${roleClass(user.role)}">${escapeHtml(user.role)}</span></td>
+                    <td>${new Date(user.created_at).toLocaleString()}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-sm btn-outline-primary" onclick='openEditUserModal(${JSON.stringify(user)})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${user.id})"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('usersTableBody').innerHTML = rows || '<tr><td colspan="5" class="text-center text-muted">No users found</td></tr>';
+        }
+
+        window.openNewUserModal = function () {
+            document.getElementById('userModalTitle').textContent = 'Create User';
+            document.getElementById('userIdField').value = '';
+            document.getElementById('userEmailField').value = '';
+            document.getElementById('userPasswordField').value = '';
+            document.getElementById('userRoleField').value = 'CONSUMER';
+        };
+
+        window.openEditUserModal = function (user) {
+            document.getElementById('userModalTitle').textContent = 'Edit User';
+            document.getElementById('userIdField').value = user.id;
+            document.getElementById('userEmailField').value = user.email || '';
+            document.getElementById('userPasswordField').value = '';
+            document.getElementById('userRoleField').value = (user.role || 'CONSUMER').toUpperCase();
+            new bootstrap.Modal(document.getElementById('userModal')).show();
+        };
+
+        window.saveUser = async function () {
+            try {
+                const id = document.getElementById('userIdField').value;
+                const email = document.getElementById('userEmailField').value.trim();
+                const password = document.getElementById('userPasswordField').value;
+                const role = document.getElementById('userRoleField').value;
+
+                if (!email) throw new Error('Email is required');
+                if (!id && !password) throw new Error('Password is required for new user');
+
+                const payload = { email, role };
+                if (password) payload.password = password;
+
+                if (id) {
+                    await apiRequest(`/api/admin/users/${id}`, 'PUT', payload);
+                } else {
+                    await apiRequest('/api/admin/users', 'POST', payload);
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+                await loadUsers();
+                await loadOverview();
+                alert('User saved successfully');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        window.deleteUser = async function (userId) {
+            if (!confirm('Delete this user?')) return;
+            try {
+                await apiRequest(`/api/admin/users/${userId}`, 'DELETE');
+                await loadUsers();
+                await loadOverview();
+                alert('User deleted');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        async function loadPosts() {
+            const q = document.getElementById('postsSearch').value.trim();
+            const data = await apiRequest(`/api/admin/posts?limit=200&q=${encodeURIComponent(q)}`);
+            const rows = (data.data || []).map(post => `
+                <tr>
+                    <td>${post.id}</td>
+                    <td>${escapeHtml(post.title || 'Untitled')}</td>
+                    <td>${escapeHtml(post.creator_email || post.creator_id)}</td>
+                    <td>${escapeHtml(post.type)}</td>
+                    <td>${post.comments_count ?? 0}</td>
+                    <td>${post.likes_count ?? 0}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-sm btn-outline-primary" onclick='openEditPostModal(${JSON.stringify(post)})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deletePost(${post.id})"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('postsTableBody').innerHTML = rows || '<tr><td colspan="7" class="text-center text-muted">No posts found</td></tr>';
+        }
+
+        window.createPost = async function () {
+            try {
+                const file = document.getElementById('postFileField').files[0];
+                if (!file) throw new Error('Please select a file');
+
+                const form = new FormData();
+                form.append('file', file);
+                form.append('title', document.getElementById('postTitleField').value || 'Untitled');
+                form.append('caption', document.getElementById('postCaptionField').value || '');
+                form.append('location', document.getElementById('postLocationField').value || '');
+                form.append('personTags', document.getElementById('postTagsField').value || '');
+
+                await apiRequest('/api/media', 'POST', form, true);
+                bootstrap.Modal.getInstance(document.getElementById('uploadPostModal')).hide();
+                document.getElementById('uploadPostForm').reset();
+                await loadPosts();
+                await loadOverview();
+                alert('Post created successfully');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        window.openEditPostModal = function (post) {
+            document.getElementById('editPostIdField').value = post.id;
+            document.getElementById('editPostTitleField').value = post.title || '';
+            document.getElementById('editPostCaptionField').value = post.caption || '';
+            document.getElementById('editPostLocationField').value = post.location || '';
+            document.getElementById('editPostTypeField').value = (post.type || 'image').toLowerCase();
+            new bootstrap.Modal(document.getElementById('postEditModal')).show();
+        };
+
+        window.savePost = async function () {
+            try {
+                const id = document.getElementById('editPostIdField').value;
+                await apiRequest(`/api/admin/posts/${id}`, 'PUT', {
+                    title: document.getElementById('editPostTitleField').value,
+                    caption: document.getElementById('editPostCaptionField').value,
+                    location: document.getElementById('editPostLocationField').value,
+                    type: document.getElementById('editPostTypeField').value
+                });
+                bootstrap.Modal.getInstance(document.getElementById('postEditModal')).hide();
+                await loadPosts();
+                alert('Post updated');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        window.deletePost = async function (postId) {
+            if (!confirm('Delete this post?')) return;
+            try {
+                await apiRequest(`/api/admin/posts/${postId}`, 'DELETE');
+                await loadPosts();
+                await loadOverview();
+                alert('Post deleted');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        async function loadComments() {
+            const q = document.getElementById('commentsSearch').value.trim();
+            const data = await apiRequest(`/api/admin/comments?limit=200&q=${encodeURIComponent(q)}`);
+            const rows = (data.data || []).map(comment => `
+                <tr>
+                    <td>${comment.id}</td>
+                    <td>#${comment.media_id} - ${escapeHtml(comment.media_title || 'Untitled')}</td>
+                    <td>${escapeHtml(comment.user_email)}</td>
+                    <td>${escapeHtml((comment.text || '').slice(0, 100))}</td>
+                    <td>${new Date(comment.created_at).toLocaleString()}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-sm btn-outline-primary" onclick='openEditCommentModal(${JSON.stringify(comment)})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteComment(${comment.id})"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('commentsTableBody').innerHTML = rows || '<tr><td colspan="6" class="text-center text-muted">No comments found</td></tr>';
+        }
+
+        window.openNewCommentModal = function () {
+            document.getElementById('commentModalTitle').textContent = 'Create Comment';
+            document.getElementById('commentIdField').value = '';
+            document.getElementById('commentMediaIdField').value = '';
+            document.getElementById('commentUserIdField').value = '';
+            document.getElementById('commentTextField').value = '';
+        };
+
+        window.openEditCommentModal = function (comment) {
+            document.getElementById('commentModalTitle').textContent = 'Edit Comment';
+            document.getElementById('commentIdField').value = comment.id;
+            document.getElementById('commentMediaIdField').value = comment.media_id;
+            document.getElementById('commentUserIdField').value = comment.user_id;
+            document.getElementById('commentTextField').value = comment.text || '';
+            new bootstrap.Modal(document.getElementById('commentModal')).show();
+        };
+
+        window.saveComment = async function () {
+            try {
+                const id = document.getElementById('commentIdField').value;
+                const mediaId = document.getElementById('commentMediaIdField').value;
+                const userId = document.getElementById('commentUserIdField').value;
+                const text = document.getElementById('commentTextField').value;
+
+                if (!text.trim()) throw new Error('Comment text is required');
+
+                if (id) {
+                    await apiRequest(`/api/admin/comments/${id}`, 'PUT', { text });
+                } else {
+                    await apiRequest('/api/admin/comments', 'POST', {
+                        media_id: Number(mediaId),
+                        user_id: userId ? Number(userId) : undefined,
+                        text
+                    });
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('commentModal')).hide();
+                await loadComments();
+                await loadOverview();
+                alert('Comment saved successfully');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        window.deleteComment = async function (commentId) {
+            if (!confirm('Delete this comment?')) return;
+            try {
+                await apiRequest(`/api/admin/comments/${commentId}`, 'DELETE');
+                await loadComments();
+                await loadOverview();
+                alert('Comment deleted');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        async function loadLikes() {
+            const q = document.getElementById('likesSearch').value.trim();
+            const data = await apiRequest(`/api/admin/likes?limit=200&q=${encodeURIComponent(q)}`);
+            const rows = (data.data || []).map(like => `
+                <tr>
+                    <td>${like.id}</td>
+                    <td>#${like.media_id} - ${escapeHtml(like.media_title || 'Untitled')}</td>
+                    <td>#${like.user_id} - ${escapeHtml(like.user_email || '')}</td>
+                    <td>${new Date(like.created_at).toLocaleString()}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-sm btn-outline-primary" onclick='openEditLikeModal(${JSON.stringify(like)})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteLike(${like.id})"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('likesTableBody').innerHTML = rows || '<tr><td colspan="5" class="text-center text-muted">No likes found</td></tr>';
+        }
+
+        window.openNewLikeModal = function () {
+            document.getElementById('likeModalTitle').textContent = 'Create Like';
+            document.getElementById('likeIdField').value = '';
+            document.getElementById('likeMediaIdField').value = '';
+            document.getElementById('likeUserIdField').value = '';
+        };
+
+        window.openEditLikeModal = function (like) {
+            document.getElementById('likeModalTitle').textContent = 'Edit Like';
+            document.getElementById('likeIdField').value = like.id;
+            document.getElementById('likeMediaIdField').value = like.media_id;
+            document.getElementById('likeUserIdField').value = like.user_id;
+            new bootstrap.Modal(document.getElementById('likeModal')).show();
+        };
+
+        window.saveLike = async function () {
+            try {
+                const id = document.getElementById('likeIdField').value;
+                const payload = {
+                    media_id: Number(document.getElementById('likeMediaIdField').value),
+                    user_id: Number(document.getElementById('likeUserIdField').value)
+                };
+
+                if (!payload.media_id || !payload.user_id) {
+                    throw new Error('Post ID and User ID are required');
+                }
+
+                if (id) {
+                    await apiRequest(`/api/admin/likes/${id}`, 'PUT', payload);
+                } else {
+                    await apiRequest('/api/admin/likes', 'POST', payload);
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('likeModal')).hide();
+                await loadLikes();
+                await loadOverview();
+                alert('Like saved successfully');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        window.deleteLike = async function (likeId) {
+            if (!confirm('Delete this like?')) return;
+            try {
+                await apiRequest(`/api/admin/likes/${likeId}`, 'DELETE');
+                await loadLikes();
+                await loadOverview();
+                alert('Like deleted');
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        let activeRoleCard = null;
+
+        async function loadRoles() {
+            const data = await apiRequest('/api/admin/roles');
+            const html = (data.data || []).map(role => `
+                <div class="role-card" data-role="${escapeHtml(role.name)}" onclick="openRoleUsers('${escapeHtml(role.name)}', this)">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>${escapeHtml(role.name)}</strong>
+                        <span class="${roleClass(role.name)}" id="roleCount_${escapeHtml(role.name)}">${role.count} users</span>
+                    </div>
+                    <div class="small-muted mb-2">${escapeHtml(role.description || '')}</div>
+                    <div class="small-muted">Permissions: ${(role.permissions || []).map(p => escapeHtml(p)).join(', ')}</div>
+                    <div class="click-hint"><i class="bi bi-cursor"></i> Click to view users</div>
+                </div>
+            `).join('');
+
+            document.getElementById('rolesGrid').innerHTML = html || '<p class="text-muted">No role metadata</p>';
+        }
+
+        window.openRoleUsers = async function(roleName, cardEl) {
+            // Toggle: clicking the active card collapses it
+            if (activeRoleCard && activeRoleCard === cardEl) {
+                closeRoleUsersPanel();
+                return;
+            }
+
+            document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+            cardEl.classList.add('active');
+            activeRoleCard = cardEl;
+
+            const panel = document.getElementById('roleUsersPanel');
+            const tbody = document.getElementById('roleUsersTableBody');
+            const title = document.getElementById('rolePanelTitle');
+
+            title.textContent = roleName;
+            panel.style.display = 'block';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm"></div> Loading users...</td></tr>';
+
+            try {
+                const data = await apiRequest(`/api/admin/users?role=${encodeURIComponent(roleName)}&limit=200`);
+                const users = data.data || [];
+
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No users with this role</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = users.map(u => {
+                    const name = u.displayName || u.email.split('@')[0];
+                    const initial = name.charAt(0).toUpperCase();
+                    const avatarHtml = u.avatarUrl
+                        ? `<img src="${escapeHtml(u.avatarUrl)}" class="user-avatar-sm" alt="">`
+                        : `<span class="user-avatar-placeholder">${escapeHtml(initial)}</span>`;
+                    const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : '-';
+                    return `
+                        <tr id="roleUserRow_${u.id}">
+                            <td>${avatarHtml}</td>
+                            <td><code>#${u.id}</code></td>
+                            <td>${escapeHtml(u.email)}</td>
+                            <td>${escapeHtml(u.displayName || '-')}</td>
+                            <td>${joined}</td>
+                            <td><span class="${roleClass(u.role)} role-pill">${escapeHtml(u.role)}</span></td>
+                            <td>
+                                <select id="roleSelect_${u.id}" class="form-select form-select-sm" style="width:130px;">
+                                    <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
+                                    <option value="CREATOR" ${u.role === 'CREATOR' ? 'selected' : ''}>CREATOR</option>
+                                    <option value="CONSUMER" ${u.role === 'CONSUMER' ? 'selected' : ''}>CONSUMER</option>
+                                </select>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" onclick="applyRoleChange(${u.id}, '${escapeHtml(roleName)}')">Save</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">${escapeHtml(err.message)}</td></tr>`;
+            }
+        };
+
+        window.closeRoleUsersPanel = function() {
+            document.getElementById('roleUsersPanel').style.display = 'none';
+            document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+            activeRoleCard = null;
+        };
+
+        window.applyRoleChange = async function(userId, currentRole) {
+            const select = document.getElementById(`roleSelect_${userId}`);
+            const newRole = select.value;
+            try {
+                await apiRequest(`/api/admin/users/${userId}`, 'PUT', { role: newRole });
+                await loadRoles();
+                // Refresh the panel for the updated role context (show current role)
+                const activeCard = document.querySelector('.role-card.active');
+                if (activeCard) openRoleUsers(activeCard.dataset.role, activeCard);
+                alert(`Role updated to ${newRole}`);
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        document.getElementById('quickRoleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const userId = Number(document.getElementById('quickRoleUserId').value);
+                const role = document.getElementById('quickRoleRole').value;
+                if (!userId) throw new Error('User ID is required');
+
+                await apiRequest(`/api/admin/users/${userId}`, 'PUT', { role });
+                alert('Role updated successfully');
+                await loadUsers();
+                await loadRoles();
+                await loadOverview();
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+
+        document.getElementById('usersSearch').addEventListener('input', () => loadUsers().catch(err => alert(err.message)));
+        document.getElementById('postsSearch').addEventListener('input', () => loadPosts().catch(err => alert(err.message)));
+        document.getElementById('commentsSearch').addEventListener('input', () => loadComments().catch(err => alert(err.message)));
+        document.getElementById('likesSearch').addEventListener('input', () => loadLikes().catch(err => alert(err.message)));
+
+        document.querySelectorAll('.nav-link-admin[data-panel]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                showPanel(link.dataset.panel);
+            });
+        });
+
+        window.loadUsers = loadUsers;
+        window.loadPosts = loadPosts;
+        window.loadComments = loadComments;
+        window.loadLikes = loadLikes;
+        window.loadRoles = loadRoles;
+
+        checkAdminAccess();
+    </script>
+</body>
+</html>

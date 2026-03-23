@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - InstaShare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        body { background-color: #f5f5f5; }
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+        }
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 3px solid white;
+            object-fit: cover;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .profile-avatar:hover {
+            opacity: 0.8;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            color: #667eea;
+            font-weight: bold;
+            margin: 10px 0 0;
+        }
+        .posts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .post-item {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .post-item:hover { transform: translateY(-5px); }
+        .post-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f0f0f0;
+        }
+        .post-item video {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f0f0f0;
+            display: block;
+        }
+        .post-info {
+            padding: 12px;
+        }
+        .settings-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="instagram-navbar">
+        <div class="container-fluid d-flex align-items-center justify-content-between" style="padding: 0 20px;">
+            <a href="consumer-feed.html" style="text-decoration: none; color: inherit; margin: 0;"><strong>InstaShare</strong></a>
+            <div class="navbar-right">
+                <a href="consumer-feed.html" class="nav-icon" title="Home">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    </svg>
+                </a>
+                <!-- Profile Avatar (current page — no link needed) -->
+                <span class="nav-icon" style="padding: 0;">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="Profile" class="user-avatar" id="profileDropdown" style="cursor: default;">
+                </span>
+
+                <!-- Logout -->
+                <button class="nav-icon" title="Logout" onclick="runLogout()" style="border: none; background: none; cursor: pointer;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <!-- Profile Header -->
+        <div class="profile-header">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-md-3 text-center mb-4 mb-md-0">
+                        <img id="userAvatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="Avatar" class="profile-avatar" onclick="document.getElementById('avatarInput').click()" title="Click to change avatar">
+                        <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="col-md-9">
+                        <h1 id="userName">Loading...</h1>
+                        <p id="userEmail" class="fs-5">Loading...</p>
+                        <p id="userBio">Welcome to InstaShare!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="row mb-5">
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card">
+                    <i class="bi bi-images" style="font-size: 24px;"></i>
+                    <p>Posts</p>
+                    <h3 id="postCount">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card">
+                    <i class="bi bi-heart" style="font-size: 24px;"></i>
+                    <p>Likes</p>
+                    <h3 id="likeCount">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card">
+                    <i class="bi bi-chat" style="font-size: 24px;"></i>
+                    <p>Comments</p>
+                    <h3 id="commentCount">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card">
+                    <i class="bi bi-star" style="font-size: 24px;"></i>
+                    <p>Rating</p>
+                    <h3 id="avgRating">0.0</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Posts Section -->
+        <div class="mb-5">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3>Your Posts</h3>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="bi bi-plus"></i> New Post
+                </button>
+            </div>
+            <div id="postsContainer" class="posts-grid">
+                <p class="text-muted">Loading posts...</p>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div class="settings-section">
+            <h3>Profile Settings</h3>
+            <form id="profileForm">
+                <div class="mb-3">
+                    <label class="form-label">Display Name</label>
+                    <input type="text" class="form-control" id="displayName" placeholder="Your name">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Bio</label>
+                    <textarea class="form-control" id="bioText" rows="3" maxlength="500"></textarea>
+                    <small><span id="bioCount">0</span>/500</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <div id="preview" style="display:none; margin-bottom: 15px;">
+                                <img id="imgPreview" style="max-width: 100%; max-height: 300px; border-radius: 8px; display: none;">
+                                <video id="vidPreview" style="max-width: 100%; max-height: 300px; border-radius: 8px; display: none;" controls></video>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Photo or Video</label>
+                            <input type="file" class="form-control" id="mediaFile" accept="image/*,video/*" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="form-control" id="postTitle" placeholder="Post title" maxlength="100">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Caption</label>
+                            <textarea class="form-control" id="postCaption" placeholder="Write a caption..." rows="3" maxlength="2000"></textarea>
+                            <small><span id="captionLen">0</span>/2000</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Location (Optional)</label>
+                            <input type="text" class="form-control" id="postLocation" placeholder="Where was this taken?">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="uploadBtn" onclick="uploadPost()">Post</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { updateMyProfile, uploadMyAvatar } from './assets/js/api.js';
+        import { logout, requireAuth, saveUser } from './assets/js/auth.js';
+
+        window.runLogout = logout;
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+        }
+
+        function avatarFallback(label) {
+            const initial = (String(label || 'U').trim().charAt(0) || 'U').toUpperCase();
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="80" fill="#667eea"/><text x="50%" y="54%" text-anchor="middle" font-family="Arial, sans-serif" font-size="64" fill="#ffffff">${initial}</text></svg>`;
+            return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+        }
+
+        function getAvatarUrl(user) {
+            return user.avatarUrl || avatarFallback(user.displayName || user.email || 'User');
+        }
+
+        function renderPostMedia(post) {
+            const mediaUrl = post.url || '';
+            if (!mediaUrl) {
+                return '<div class="d-flex align-items-center justify-content-center text-muted" style="height: 200px; background: #f0f0f0;">Media unavailable</div>';
+            }
+
+            if (post.type === 'video') {
+                return `<video src="${mediaUrl}" controls muted playsinline preload="metadata" data-hover-play="true"></video>`;
+            }
+
+            return `<img src="${mediaUrl}" alt="${escapeHtml(post.title || 'Post image')}" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<div class=&quot;d-flex align-items-center justify-content-center text-muted&quot; style=&quot;height:200px;background:#f0f0f0;&quot;>Image unavailable</div>')">`;
+        }
+
+        function bindHoverPreviewVideo(video) {
+            if (!video || video.dataset.hoverBound === '1') {
+                return;
+            }
+
+            video.dataset.hoverBound = '1';
+
+            video.addEventListener('mouseenter', () => {
+                video.play().catch(() => {
+                    // Browser autoplay policies may block playback before interaction.
+                });
+            });
+
+            video.addEventListener('mouseleave', () => {
+                video.pause();
+                video.currentTime = 0;
+            });
+
+            video.addEventListener('click', (event) => event.stopPropagation());
+            video.addEventListener('dblclick', (event) => event.stopPropagation());
+        }
+
+        function applyUserToView(user) {
+            const displayName = user.displayName || user.email?.split('@')[0] || 'User';
+            const bio = user.bio || 'Welcome to InstaShare!';
+            const avatarUrl = getAvatarUrl(user);
+
+            document.getElementById('userName').textContent = displayName;
+            document.getElementById('userEmail').textContent = user.email || '';
+            document.getElementById('userBio').textContent = bio;
+            document.getElementById('userAvatar').src = avatarUrl;
+            document.getElementById('profileDropdown').src = avatarUrl;
+            document.getElementById('displayName').value = user.displayName || '';
+            document.getElementById('bioText').value = user.bio || '';
+            document.getElementById('bioCount').textContent = (user.bio || '').length;
+        }
+
+        async function loadDashboard() {
+            try {
+                const user = await requireAuth();
+                if (!user) {
+                    return;
+                }
+
+                applyUserToView(user);
+
+                const token = localStorage.getItem('token');
+                const res = await fetch('/api/media?creator_id=me&page=1&limit=50', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                const container = document.getElementById('postsContainer');
+                container.innerHTML = '';
+
+                let postCount = 0;
+                let likeCount = 0;
+                let commentCount = 0;
+                const ratings = [];
+
+                if (Array.isArray(data.data) && data.data.length > 0) {
+                    data.data.forEach((post) => {
+                        postCount += 1;
+                        likeCount += Number(post.likesCount || 0);
+                        commentCount += Number(post.commentsCount || 0);
+
+                        const averageRating = Number(post.ratings?.average || 0);
+                        if (averageRating > 0) {
+                            ratings.push(averageRating);
+                        }
+
+                        const item = document.createElement('div');
+                        item.className = 'post-item';
+                        item.innerHTML = `
+                            ${renderPostMedia(post)}
+                            <div class="post-info">
+                                <strong>${escapeHtml(post.title || 'Untitled')}</strong>
+                                <p style="font-size: 12px; color: #999; margin: 5px 0;">${escapeHtml((post.caption || '').substring(0, 60))}</p>
+                            </div>
+                        `;
+                        bindHoverPreviewVideo(item.querySelector('video[data-hover-play="true"]'));
+
+                        item.onclick = (event) => {
+                            if (event.target.closest('video')) {
+                                return;
+                            }
+
+                            window.location.href = `/media-detail.html?id=${post.id}`;
+                        };
+                        container.appendChild(item);
+                    });
+                } else {
+                    container.innerHTML = '<p class="text-muted">No posts yet. Create your first post!</p>';
+                }
+
+                document.getElementById('postCount').textContent = String(postCount);
+                document.getElementById('likeCount').textContent = String(likeCount);
+                document.getElementById('commentCount').textContent = String(commentCount);
+                document.getElementById('avgRating').textContent = ratings.length > 0
+                    ? (ratings.reduce((sum, value) => sum + value, 0) / ratings.length).toFixed(1)
+                    : '0.0';
+            } catch (err) {
+                console.error('Dashboard error:', err);
+                document.getElementById('postsContainer').innerHTML = '<p class="text-danger">Error loading posts. Please refresh the page.</p>';
+            }
+        }
+
+        document.getElementById('bioText')?.addEventListener('input', (event) => {
+            document.getElementById('bioCount').textContent = event.target.value.length;
+        });
+
+        document.getElementById('postCaption')?.addEventListener('input', (event) => {
+            document.getElementById('captionLen').textContent = event.target.value.length;
+        });
+
+        document.getElementById('mediaFile')?.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                const preview = document.getElementById('preview');
+                const img = document.getElementById('imgPreview');
+                const vid = document.getElementById('vidPreview');
+
+                img.style.display = 'none';
+                vid.style.display = 'none';
+
+                if (file.type.startsWith('image/')) {
+                    img.src = loadEvent.target.result;
+                    img.style.display = 'block';
+                } else if (file.type.startsWith('video/')) {
+                    vid.src = loadEvent.target.result;
+                    vid.style.display = 'block';
+                }
+
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('avatarInput')?.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB');
+                event.target.value = '';
+                return;
+            }
+
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                event.target.value = '';
+                return;
+            }
+
+            try {
+                const res = await uploadMyAvatar(file);
+                saveUser(res.data || {});
+                applyUserToView(res.data || {});
+                alert('Profile picture updated successfully.');
+            } catch (err) {
+                console.error('Avatar upload error:', err);
+                alert(err.message || 'Failed to update profile picture');
+            } finally {
+                event.target.value = '';
+            }
+        });
+
+        document.getElementById('profileForm')?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            try {
+                const res = await updateMyProfile({
+                    displayName: document.getElementById('displayName').value.trim(),
+                    bio: document.getElementById('bioText').value.trim()
+                });
+                saveUser(res.data || {});
+                applyUserToView(res.data || {});
+                alert('Profile updated successfully.');
+            } catch (err) {
+                console.error('Profile update error:', err);
+                alert(err.message || 'Failed to save profile changes');
+            }
+        });
+
+        window.uploadPost = async function uploadPost() {
+            const file = document.getElementById('mediaFile').files[0];
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            const form = new FormData();
+            form.append('file', file);
+            form.append('title', document.getElementById('postTitle').value || 'Untitled');
+            form.append('caption', document.getElementById('postCaption').value);
+            form.append('location', document.getElementById('postLocation').value);
+
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            try {
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = 'Uploading...';
+
+                const token = localStorage.getItem('token');
+                const res = await fetch('/api/media', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: form
+                });
+
+                if (!res.ok) {
+                    const errorPayload = await res.json().catch(() => null);
+                    throw new Error(errorPayload?.error?.message || 'Upload failed');
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('uploadModal'))?.hide();
+                document.getElementById('uploadForm').reset();
+                document.getElementById('preview').style.display = 'none';
+                document.getElementById('captionLen').textContent = '0';
+                alert('Post created successfully.');
+                await loadDashboard();
+            } catch (err) {
+                console.error('Upload error:', err);
+                alert(err.message || 'Failed to upload post');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Post';
+            }
+        };
+
+        loadDashboard();
+    </script>
+</body>
+</html>

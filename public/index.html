@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Clone - Welcome</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .welcome-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+        }
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        p {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #667eea;
+            border: none;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #764ba2;
+            color: white;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            border: 2px solid #667eea;
+            color: #667eea;
+        }
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+        .status {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+        }
+        .status-item {
+            margin: 10px 0;
+            color: #666;
+        }
+        .status-item.ok {
+            color: #28a745;
+        }
+        .status-item.error {
+            color: #dc3545;
+        }
+        .status-badge {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        .status-badge.ok {
+            background: #28a745;
+        }
+        .status-badge.error {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-container">
+        <div class="logo">📸</div>
+        <h1>Instagram Clone</h1>
+        <p>A scalable, cloud-native media sharing platform</p>
+        
+        <div class="btn-group">
+            <a href="login.html" class="btn btn-primary">Login</a>
+            <a href="signup.html" class="btn btn-success">Sign Up</a>
+        </div>
+        <div class="btn-group">
+            <a href="consumer-feed.html" class="btn btn-secondary">Browse Feed</a>
+        </div>
+
+        <div class="status">
+            <h5>System Status</h5>
+            <div id="status-container">
+                <div class="status-item">
+                    <span class="status-badge ok"></span>
+                    Frontend: <strong>✓ Running</strong>
+                </div>
+                <div class="status-item" id="api-status">
+                    <span class="status-badge"></span>
+                    Backend API: <strong>Checking...</strong>
+                </div>
+                <div class="status-item" id="db-status">
+                    <span class="status-badge"></span>
+                    Database: <strong>Checking...</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check API health
+        fetch('/api/health')
+            .then(response => {
+                const apiStatus = document.getElementById('api-status');
+                if (response.ok) {
+                    apiStatus.className = 'status-item ok';
+                    apiStatus.innerHTML = '<span class="status-badge ok"></span> Backend API: <strong>✓ Running</strong>';
+                } else {
+                    throw new Error('API not responding');
+                }
+            })
+            .catch(error => {
+                const apiStatus = document.getElementById('api-status');
+                apiStatus.className = 'status-item error';
+                apiStatus.innerHTML = '<span class="status-badge error"></span> Backend API: <strong>✗ Error</strong>';
+            });
+
+        // Check readiness
+        fetch('/api/ready')
+            .then(response => {
+                const dbStatus = document.getElementById('db-status');
+                if (response.ok) {
+                    dbStatus.className = 'status-item ok';
+                    dbStatus.innerHTML = '<span class="status-badge ok"></span> Database: <strong>✓ Ready</strong>';
+                } else {
+                    throw new Error('Database not ready');
+                }
+            })
+            .catch(error => {
+                const dbStatus = document.getElementById('db-status');
+                dbStatus.className = 'status-item error';
+                dbStatus.innerHTML = '<span class="status-badge error"></span> Database: <strong>✗ Error</strong>';
+            });
+    </script>
+</body>
+</html>

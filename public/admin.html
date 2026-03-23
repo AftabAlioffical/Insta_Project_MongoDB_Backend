@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - InstaShare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        body {
+            background-color: #f5f5f5;
+        }
+
+        .sidebar {
+            background-color: #2c3e50;
+            min-height: 100vh;
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            width: 250px;
+            left: 0;
+            top: 0;
+            z-index: 100;
+        }
+
+        .sidebar .logo {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #34495e;
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 12px 20px;
+            color: #bdc3c7;
+            text-decoration: none;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar a:hover,
+        .sidebar a.active {
+            background-color: #34495e;
+            color: white;
+            border-left-color: #667eea;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card.users {
+            border-left-color: #667eea;
+        }
+
+        .stat-card.posts {
+            border-left-color: #2dce89;
+        }
+
+        .stat-card.comments {
+            border-left-color: #0095f6;
+        }
+
+        .stat-card.engagement {
+            border-left-color: #ed4956;
+        }
+
+        .stat-card-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+        }
+
+        .stat-card-label {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .table-container h4 {
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .badge-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-admin {
+            background-color: #667eea;
+            color: white;
+        }
+
+        .badge-creator {
+            background-color: #2dce89;
+            color: white;
+        }
+
+        .badge-consumer {
+            background-color: #0095f6;
+            color: white;
+        }
+
+        .action-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            margin: 0 2px;
+        }
+
+        .modal-header {
+            background-color: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .nav-tabs .nav-link {
+            color: #999;
+            border: none;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .alert-box {
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                min-height: auto;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 10px;
+            }
+
+            .stat-card {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="logo">
+            <i class="bi bi-shield-lock"></i> Admin Panel
+        </div>
+        <a href="#" onclick="switchTab('dashboard')" class="sidebar-link active" data-tab="dashboard">
+            <i class="bi bi-speedometer2 me-2"></i>Dashboard
+        </a>
+        <a href="#" onclick="switchTab('users')" class="sidebar-link" data-tab="users">
+            <i class="bi bi-people me-2"></i>Users Management
+        </a>
+        <a href="#" onclick="switchTab('posts')" class="sidebar-link" data-tab="posts">
+            <i class="bi bi-images me-2"></i>Posts Moderation
+        </a>
+        <a href="#" onclick="switchTab('reports')" class="sidebar-link" data-tab="reports">
+            <i class="bi bi-flag me-2"></i>Reports
+        </a>
+        <a href="#" onclick="switchTab('Analytics')" class="sidebar-link" data-tab="analytics">
+            <i class="bi bi-graph-up me-2"></i>Analytics
+        </a>
+        <a href="#" onclick="switchTab('settings')" class="sidebar-link" data-tab="settings">
+            <i class="bi bi-gear me-2"></i>Settings
+        </a>
+        <hr style="border-color: #34495e; margin: 20px 0;">
+        <a href="consumer-feed.html" class="sidebar-link">
+            <i class="bi bi-house me-2"></i>Back to Feed
+        </a>
+        <a href="#" onclick="logout()" class="sidebar-link">
+            <i class="bi bi-box-arrow-right me-2"></i>Logout
+        </a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Admin Dashboard</h1>
+            <div>
+                <span class="me-3 text-muted">
+                    <i class="bi bi-person-circle"></i> 
+                    <span id="adminName">Admin</span>
+                </span>
+                <button class="btn btn-sm btn-outline-danger" onclick="logout()">
+                    <i class="bi bi-box-arrow-right"></i> Sign Out
+                </button>
+            </div>
+        </div>
+
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-pane-content">
+            <h2 class="mb-4">System Overview</h2>
+
+            <!-- Statistics Row -->
+            <div class="row mb-4">
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card users">
+                        <div class="stat-card-label">
+                            <i class="bi bi-people"></i> Total Users
+                        </div>
+                        <div class="stat-card-value" id="statTotalUsers">0</div>
+                        <small class="text-muted" id="statNewUsers">+0 this week</small>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card posts">
+                        <div class="stat-card-label">
+                            <i class="bi bi-images"></i> Total Posts
+                        </div>
+                        <div class="stat-card-value" id="statTotalPosts">0</div>
+                        <small class="text-muted" id="statNewPosts">+0 this week</small>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card comments">
+                        <div class="stat-card-label">
+                            <i class="bi bi-chat-dots"></i> Total Comments
+                        </div>
+                        <div class="stat-card-value" id="statTotalComments">0</div>
+                        <small class="text-muted" id="statNewComments">+0 this week</small>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card engagement">
+                        <div class="stat-card-label">
+                            <i class="bi bi-heart"></i> Total Likes
+                        </div>
+                        <div class="stat-card-value" id="statTotalLikes">0</div>
+                        <small class="text-muted" id="statEngagementRate">-% engagement</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="table-container">
+                        <h4>Recent Users</h4>
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Joined</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentUsersTable">
+                                <tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="table-container">
+                        <h4>Recent Posts</h4>
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Creator</th>
+                                    <th>Posted</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentPostsTable">
+                                <tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Management Tab -->
+        <div id="users" class="tab-pane-content" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Users Management</h2>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                    <i class="bi bi-plus-lg"></i> Create User
+                </button>
+            </div>
+
+            <div class="table-container">
+                <div class="mb-3">
+                    <input type="text" class="form-control" placeholder="Search users..." id="userSearchInput">
+                </div>
+
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Posts</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Posts Moderation Tab -->
+        <div id="posts" class="tab-pane-content" style="display: none;">
+            <h2 class="mb-4">Posts Moderation</h2>
+            <div class="table-container">
+                <div class="mb-3">
+                    <select class="form-select" id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="approved">Approved</option>
+                        <option value="pending">Pending</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Creator</th>
+                            <th>Status</th>
+                            <th>Likes</th>
+                            <th>Comments</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="postsTable">
+                        <tr><td colspan="7" class="text-center text-muted py-4">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reports" class="tab-pane-content" style="display: none;">
+            <h2 class="mb-4">Reports & Issues</h2>
+            <div class="table-container">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Reporter</th>
+                            <th>Target</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">No reports at this time.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="Analytics" class="tab-pane-content" style="display: none;">
+            <h2 class="mb-4">Platform Analytics</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="table-container">
+                        <h4>Top Creators</h4>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Creator</th>
+                                    <th>Posts</th>
+                                    <th>Likes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topCreatorsTable">
+                                <tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="table-container">
+                        <h4>Most Liked Posts</h4>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Likes</th>
+                                    <th>Comments</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topPostsTable">
+                                <tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-pane-content" style="display: none;">
+            <h2 class="mb-4">System Settings</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="table-container">
+                        <h5>Platform Settings</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Site Name</label>
+                            <input type="text" class="form-control" value="InstaShare" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Items Per Page</label>
+                            <input type="number" class="form-control" value="20">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Max Upload Size (MB)</label>
+                            <input type="number" class="form-control" value="50">
+                        </div>
+                        <button class="btn btn-primary">Save Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New User</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createUserForm">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="newUserEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" id="newUserPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Role</label>
+                            <select class="form-select" id="newUserRole">
+                                <option value="CONSUMER">Consumer</option>
+                                <option value="CREATOR">Creator</option>
+                                <option value="ADMIN">Admin</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createNewUser()">Create User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { requireAuth, logout } from './assets/js/auth.js';
+
+        requireAuth();
+        window.logout = logout;
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-pane-content').forEach(el => el.style.display = 'none');
+            const element = document.getElementById(tab);
+            if (element) element.style.display = 'block';
+
+            document.querySelectorAll('.sidebar-link').forEach(el => el.classList.remove('active'));
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+            if (tab === 'users') loadUsers();
+            if (tab === 'posts') loadPosts();
+            if (tab === 'Analytics') loadAnalytics();
+        }
+
+        async function loadDashboard() {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.data) {
+                    document.getElementById('adminName').textContent = data.data.email;
+                }
+
+                // Load stats - these would come from API endpoints
+                document.getElementById('statTotalUsers').textContent = '125';
+                document.getElementById('statNewUsers').textContent = '+12 this week';
+                document.getElementById('statTotalPosts').textContent = '892';
+                document.getElementById('statNewPosts').textContent = '+45 this week';
+                document.getElementById('statTotalComments').textContent = '3,240';
+                document.getElementById('statNewComments').textContent = '+380 this week';
+                document.getElementById('statTotalLikes').textContent = '8,932';
+                document.getElementById('statEngagementRate').textContent = '86.5% engagement';
+
+                loadRecentActivity();
+            } catch (err) {
+                console.error('Error loading dashboard:', err);
+            }
+        }
+
+        async function loadRecentActivity() {
+            try {
+                const token = localStorage.getItem('token');
+                // Mock data - replace with actual API calls
+                const recentUsersHTML = `
+                    <tr><td>user1@test.com</td><td><span class="badge-status badge-creator">Creator</span></td><td>2 hours ago</td></tr>
+                    <tr><td>user2@test.com</td><td><span class="badge-status badge-consumer">Consumer</span></td><td>1 day ago</td></tr>
+                    <tr><td>user3@test.com</td><td><span class="badge-status badge-creator">Creator</span></td><td>2 days ago</td></tr>
+                `;
+                document.getElementById('recentUsersTable').innerHTML = recentUsersHTML;
+
+                const recentPostsHTML = `
+                    <tr><td>Summer Vibes</td><td>user1@test.com</td><td>1 hour ago</td></tr>
+                    <tr><td>Beach Day</td><td>user2@test.com</td><td>3 hours ago</td></tr>
+                    <tr><td>Mountain Hike</td><td>user3@test.com</td><td>5 hours ago</td></tr>
+                `;
+                document.getElementById('recentPostsTable').innerHTML = recentPostsHTML;
+            } catch (err) {
+                console.error('Error loading recent activity:', err);
+            }
+        }
+
+        async function loadUsers() {
+            // Mock data
+            const usersHTML = `
+                <tr>
+                    <td>testuser@insta.local</td>
+                    <td><span class="badge-status badge-admin">Admin</span></td>
+                    <td>14</td>
+                    <td><span class="badge bg-success">Active</span></td>
+                    <td>Mar 1</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary action-btn">Edit</button>
+                        <button class="btn btn-sm btn-danger action-btn">Ban</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>user1@test.com</td>
+                    <td><span class="badge-status badge-creator">Creator</span></td>
+                    <td>8</td>
+                    <td><span class="badge bg-success">Active</span></td>
+                    <td>Mar 3</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary action-btn">Edit</button>
+                        <button class="btn btn-sm btn-danger action-btn">Ban</button>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('usersTable').innerHTML = usersHTML;
+        }
+
+        async function loadPosts() {
+            const postsHTML = `
+                <tr>
+                    <td>Sunset at Beach</td>
+                    <td>testuser@insta.local</td>
+                    <td><span class="badge bg-success">Approved</span></td>
+                    <td>234</td>
+                    <td>18</td>
+                    <td>2 hours ago</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning action-btn">Review</button>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('postsTable').innerHTML = postsHTML;
+        }
+
+        async function loadAnalytics() {
+            const creatorHTML = `
+                <tr><td>testuser@insta.local</td><td>14</td><td>892</td></tr>
+                <tr><td>user1@test.com</td><td>8</td><td>456</td></tr>
+            `;
+            document.getElementById('topCreatorsTable').innerHTML = creatorHTML;
+
+            const postsHTML = `
+                <tr><td>Sunset View</td><td>892</td><td>124</td></tr>
+                <tr><td>Mountain Peak</td><td>756</td><td>98</td></tr>
+            `;
+            document.getElementById('topPostsTable').innerHTML = postsHTML;
+        }
+
+        window.createNewUser = () => {
+            const email = document.getElementById('newUserEmail').value;
+            const password = document.getElementById('newUserPassword').value;
+            const role = document.getElementById('newUserRole').value;
+
+            if (!email || !password) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            alert(`User ${email} created as ${role}!`);
+            // TODO: Call API to create user
+            bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+        };
+
+        window.switchTab = switchTab;
+        
+        // Check if user is admin
+        function verifyAdminAccess() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (!token) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            // If user data exists, check role
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    if (userData.role && userData.role !== 'ADMIN') {
+                        alert('Access denied: Admin privileges required');
+                        window.location.href = 'consumer-feed.html';
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Could not parse user data for role verification');
+                }
+            }
+            // If we have a token, allow access (role verification will happen server-side too)
+        }
+        
+        // Verify admin access on page load
+        window.addEventListener('load', verifyAdminAccess);
+        
+        loadDashboard();
+    </script>
+</body>
+</html>

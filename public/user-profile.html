@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - InstaShare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="consumer-feed.html">InstaShare</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="consumer-feed.html">Feed</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" onclick="logout()">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-md-4">
+                <!-- User Profile Card -->
+                <div class="card mb-4">
+                    <div class="card-body text-center">
+                        <div id="profileAvatarWrap" style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; overflow: hidden;">
+                            <img id="profileAvatar" src="" alt="Profile picture" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                            <span id="userInitials">?</span>
+                        </div>
+                        <h4 id="userName" class="mb-1">Loading...</h4>
+                        <p class="text-muted mb-1" id="userEmail">Loading...</p>
+                        <p class="text-muted mb-1" id="userRole">User</p>
+                        <p class="text-muted small" id="userBio">&nbsp;</p>
+                        
+                        <hr>
+                        
+                        <div class="row text-center">
+                            <div class="col">
+                                <h5 id="postCount">0</h5>
+                                <small class="text-muted">Posts</small>
+                            </div>
+                            <div class="col">
+                                <h5 id="likeCount">0</h5>
+                                <small class="text-muted">Likes</small>
+                            </div>
+                            <div class="col">
+                                <h5 id="commentCount">0</h5>
+                                <small class="text-muted">Comments</small>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <small class="text-muted" id="joinDate">Member since</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <!-- User's Posts -->
+                <h3 class="mb-4">Posts</h3>
+                <div id="postsContainer" class="d-flex flex-column gap-3">
+                    <p class="text-muted">Loading posts...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light mt-5">
+        <!-- Footer Navbar -->
+        <nav class="navbar navbar-dark bg-black py-3">
+            <div class="container-fluid">
+                <span class="navbar-brand mb-0 h1">InstaShare</span>
+                <div class="d-flex gap-3">
+                    <a href="consumer-feed.html" class="text-light text-decoration-none">Home</a>
+                    <a href="#" class="text-light text-decoration-none">About</a>
+                    <a href="#" class="text-light text-decoration-none">Terms</a>
+                    <a href="#" class="text-light text-decoration-none">Privacy</a>
+                    <a href="#" class="text-light text-decoration-none">Contact</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Footer Content -->
+        <div class="container py-4">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h5>About InstaShare</h5>
+                    <p class="text-muted">Share your moments with the world. A scalable social media platform for creators and consumers.</p>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="consumer-feed.html" class="text-light text-decoration-none">Feed</a></li>
+                        <li><a href="#" class="text-light text-decoration-none">Explore</a></li>
+                        <li><a href="#" class="text-light text-decoration-none">Settings</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <h5>Follow Us</h5>
+                    <div class="d-flex gap-3">
+                        <a href="https://facebook.com" target="_blank" class="text-light text-decoration-none fs-5">f Facebook</a>
+                        <a href="https://twitter.com" target="_blank" class="text-light text-decoration-none fs-5">𝕏 Twitter</a>
+                        <a href="https://instagram.com" target="_blank" class="text-light text-decoration-none fs-5">📷</a>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="bg-secondary">
+
+            <div class="text-center">
+                <p class="text-muted mb-0">&copy; 2026 InstaShare. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="assets/js/api.js"></script>
+    <script type="module" src="assets/js/auth.js"></script>
+    <script type="module">
+        import { getUserProfile } from './assets/js/api.js';
+        import { logout, requireAuth } from './assets/js/auth.js';
+
+        window.logout = logout;
+
+        function avatarFallback(label) {
+            const initial = (String(label || 'U').trim().charAt(0) || 'U').toUpperCase();
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" rx="50" fill="#667eea"/><text x="50%" y="56%" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" fill="#ffffff">${initial}</text></svg>`;
+            return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+        }
+
+        function getDisplayName(user) {
+            return user.displayName || user.email?.split('@')[0] || 'User';
+        }
+
+        function renderProfileAvatar(user) {
+            const avatar = document.getElementById('profileAvatar');
+            const initials = document.getElementById('userInitials');
+
+            if (user.avatarUrl) {
+                avatar.src = user.avatarUrl;
+                avatar.style.display = 'block';
+                initials.style.display = 'none';
+                return;
+            }
+
+            avatar.src = avatarFallback(getDisplayName(user));
+            avatar.style.display = 'block';
+            initials.style.display = 'none';
+        }
+
+        function renderPostMedia(post) {
+            if (!post.url) {
+                return '<div style="height: 300px; display: flex; align-items: center; justify-content: center; background: #f3f3f3; color: #6c757d;">Media unavailable</div>';
+            }
+
+            if (post.type === 'video') {
+                return `<video src="${post.url}" style="width: 100%; height: 300px; object-fit: cover; display: block;" controls muted playsinline preload="metadata" data-hover-play="true"></video>`;
+            }
+
+            return `<img src="${post.url}" alt="${post.title || 'Post'}" style="width: 100%; height: 300px; object-fit: cover; display: block;">`;
+        }
+
+        function bindHoverPreviewVideo(video) {
+            if (!video || video.dataset.hoverBound === '1') {
+                return;
+            }
+
+            video.dataset.hoverBound = '1';
+
+            video.addEventListener('mouseenter', () => {
+                video.play().catch(() => {
+                    // Browser autoplay policies can block this until interaction.
+                });
+            });
+
+            video.addEventListener('mouseleave', () => {
+                video.pause();
+                video.currentTime = 0;
+            });
+
+            // Prevent the parent anchor from navigating while using controls.
+            video.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            });
+
+            video.addEventListener('dblclick', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            });
+        }
+
+        async function loadProfile() {
+            try {
+                const currentUser = await requireAuth();
+                if (!currentUser) {
+                    return;
+                }
+
+                const params = new URLSearchParams(window.location.search);
+                const userId = params.get('id') || currentUser.id;
+                const res = await getUserProfile(userId);
+                const user = res.data;
+
+                renderProfileAvatar(user);
+                document.getElementById('userName').textContent = getDisplayName(user);
+                document.getElementById('userEmail').textContent = user.email || '';
+                document.getElementById('userRole').textContent = user.role || 'User';
+                document.getElementById('userBio').textContent = user.bio || 'No bio added yet.';
+                document.getElementById('postCount').textContent = user.postCount || 0;
+                document.getElementById('likeCount').textContent = user.totalLikes || 0;
+                document.getElementById('commentCount').textContent = user.totalComments || 0;
+                document.getElementById('joinDate').textContent = `Member since ${new Date(user.created_at).toLocaleDateString()}`;
+
+                const container = document.getElementById('postsContainer');
+                if (!user.posts || user.posts.length === 0) {
+                    container.innerHTML = '<p class="alert alert-info">No posts yet</p>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                user.posts.forEach(post => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `
+                        <a href="/media-detail.html?id=${post.id}">
+                            ${renderPostMedia(post)}
+                        </a>
+                        <div class="card-body">
+                            <h5 class="card-title"><a href="/media-detail.html?id=${post.id}" class="text-dark text-decoration-none">${post.title || 'Untitled'}</a></h5>
+                            <p class="card-text text-muted">${post.caption || 'No caption'}</p>
+                        </div>
+                    `;
+                    bindHoverPreviewVideo(card.querySelector('video[data-hover-play="true"]'));
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                console.error(err);
+                document.getElementById('postsContainer').innerHTML = '<p class="alert alert-danger">Error loading profile: ' + (err.message || 'Unknown error') + '</p>';
+            }
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html>
