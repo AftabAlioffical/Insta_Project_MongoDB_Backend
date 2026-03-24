@@ -233,6 +233,11 @@ class UserController
             return Response::send(Response::error($auth['error'], 401));
         }
 
+        $roleAuth = AuthMiddleware::checkRole(['ADMIN', 'CREATOR']);
+        if (!$roleAuth['authenticated']) {
+            return Response::send(Response::error($roleAuth['error'], 403));
+        }
+
         $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 8;
         $limit = max(1, min(20, $limit));
 

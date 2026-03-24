@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - InstaShare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        body {
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+        }
+
+        .about-shell {
+            padding: 32px 16px 56px;
+        }
+
+        .about-hero-card {
+            background: linear-gradient(135deg, #111827 0%, #312e81 50%, #1d4ed8 100%);
+            color: #fff;
+            border: none;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 24px 60px rgba(37, 99, 235, 0.22);
+        }
+
+        .about-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.14);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .about-hero-title {
+            font-size: clamp(2rem, 5vw, 3.6rem);
+            line-height: 1.05;
+            margin: 18px 0 14px;
+            font-weight: 800;
+        }
+
+        .about-hero-copy {
+            max-width: 640px;
+            font-size: 1.02rem;
+            color: rgba(255, 255, 255, 0.86);
+        }
+
+        .about-hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 22px;
+        }
+
+        .about-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 26px;
+        }
+
+        .about-stat {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 18px;
+            padding: 16px;
+        }
+
+        .about-stat strong {
+            display: block;
+            font-size: 1.6rem;
+            margin-bottom: 2px;
+        }
+
+        .feature-card,
+        .contact-card {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            border-radius: 20px;
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+            height: 100%;
+        }
+
+        .feature-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, #dbeafe, #e0e7ff);
+            color: #1d4ed8;
+            margin-bottom: 16px;
+        }
+
+        .contact-helper {
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .contact-meta {
+            display: grid;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .contact-meta-item {
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: 16px;
+            padding: 14px;
+            background: #fff;
+        }
+
+        .contact-status {
+            display: none;
+            margin-top: 14px;
+        }
+
+        .contact-status.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .about-shell {
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+
+            .about-stat-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .about-shell {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 20px;
+            }
+
+            .about-hero-card .card-body,
+            .feature-card .card-body,
+            .contact-card .card-body {
+                padding: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="consumer-feed.html">InstaShare</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation" title="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="consumer-feed.html">Feed</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.html">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="search.html">Search</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container about-shell">
+        <section class="card about-hero-card mb-4">
+            <div class="card-body p-4 p-lg-5">
+                <span class="about-pill">About InstaShare</span>
+                <h1 class="about-hero-title">A social space for creators, communities, and everyday moments.</h1>
+                <p class="about-hero-copy">
+                    InstaShare is built for fast sharing, clean discovery, and simple community engagement. Users can upload media,
+                    connect through comments, likes, ratings, and search, while admins keep the platform organized from one dashboard.
+                </p>
+                <div class="about-hero-actions">
+                    <a href="consumer-feed.html" class="btn btn-light btn-lg">Explore Feed</a>
+                    <a href="#contactUs" class="btn btn-outline-light btn-lg">Contact Us</a>
+                </div>
+                <div class="about-stat-grid">
+                    <div class="about-stat">
+                        <strong>3</strong>
+                        <span>Core roles: Admin, Creator, Consumer</span>
+                    </div>
+                    <div class="about-stat">
+                        <strong>1</strong>
+                        <span>Unified place to share, search, and manage media</span>
+                    </div>
+                    <div class="about-stat">
+                        <strong>24/7</strong>
+                        <span>Designed for always-on local development and demos</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="row g-4 mb-4">
+            <div class="col-lg-4">
+                <div class="card feature-card">
+                    <div class="card-body p-4">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="h5">Built for conversation</h3>
+                        <p class="mb-0 text-muted">Comments, ratings, likes, and presence features help people interact around each post instead of just scrolling past it.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card feature-card">
+                    <div class="card-body p-4">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="M21 21l-4.35-4.35"></path>
+                            </svg>
+                        </div>
+                        <h3 class="h5">Search that stays practical</h3>
+                        <p class="mb-0 text-muted">Search across users, locations, person tags, and content terms so discovering relevant posts stays simple and quick.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card feature-card">
+                    <div class="card-body p-4">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 20h9"></path>
+                                <path d="M12 4h9"></path>
+                                <path d="M4 9h16"></path>
+                                <path d="M4 15h16"></path>
+                            </svg>
+                        </div>
+                        <h3 class="h5">Admin visibility and control</h3>
+                        <p class="mb-0 text-muted">Admins can review users, posts, comments, likes, and roles from one management surface without leaving the app flow.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="row g-4 align-items-start" id="contactUs">
+            <div class="col-lg-5">
+                <div class="card contact-card">
+                    <div class="card-body p-4">
+                        <h2 class="h4 mb-3">What this page includes</h2>
+                        <p class="text-muted mb-3">The About Us page includes practical information and a real way to contact the project owner.</p>
+                        <div class="contact-meta">
+                            <div class="contact-meta-item">
+                                <strong class="d-block mb-1">Inputs</strong>
+                                <span class="text-muted">Full name, email, subject, and message.</span>
+                            </div>
+                            <div class="contact-meta-item">
+                                <strong class="d-block mb-1">Buttons</strong>
+                                <span class="text-muted">Send Message, Explore Feed, and Contact Us quick actions.</span>
+                            </div>
+                            <div class="contact-meta-item">
+                                <strong class="d-block mb-1">Support Email</strong>
+                                <a href="mailto:aftabaliofficial7652482@gmail.com">aftabaliofficial7652482@gmail.com</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="card contact-card">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                                <h2 class="h4 mb-1">Contact Us</h2>
+                                <p class="contact-helper mb-0">Submitting this form opens your email app with the message prefilled.</p>
+                            </div>
+                            <a href="mailto:aftabaliofficial7652482@gmail.com" class="btn btn-outline-secondary">Email Directly</a>
+                        </div>
+
+                        <form id="aboutContactForm">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="contactName" class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="contactName" placeholder="Enter your name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="contactEmail" class="form-label">Email Address</label>
+                                    <input type="email" class="form-control" id="contactEmail" placeholder="Enter your email" required>
+                                </div>
+                                <div class="col-12">
+                                    <label for="contactSubject" class="form-label">Subject</label>
+                                    <input type="text" class="form-control" id="contactSubject" placeholder="What do you want to discuss?" required>
+                                </div>
+                                <div class="col-12">
+                                    <label for="contactMessage" class="form-label">Message</label>
+                                    <textarea class="form-control" id="contactMessage" rows="5" placeholder="Write your message here" required></textarea>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mt-4">
+                                <button type="submit" class="btn btn-primary">Send Message</button>
+                                <a href="consumer-feed.html" class="btn btn-outline-secondary">Back to Feed</a>
+                            </div>
+                            <div id="contactStatus" class="alert alert-success contact-status" role="alert"></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="assets/js/footer.js"></script>
+    <script type="module">
+        const CONTACT_EMAIL = 'aftabaliofficial7652482@gmail.com';
+        const form = document.getElementById('aboutContactForm');
+        const status = document.getElementById('contactStatus');
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const name = document.getElementById('contactName').value.trim();
+            const email = document.getElementById('contactEmail').value.trim();
+            const subject = document.getElementById('contactSubject').value.trim();
+            const message = document.getElementById('contactMessage').value.trim();
+
+            const body = [
+                `Name: ${name}`,
+                `Email: ${email}`,
+                '',
+                message
+            ].join('\n');
+
+            const mailtoUrl = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.location.href = mailtoUrl;
+
+            status.textContent = 'Your email app should now be open with the message prefilled.';
+            status.classList.add('show');
+        });
+    </script>
+</body>
+</html>

@@ -590,6 +590,54 @@ body {
     pointer-events: none;
 }
 
+.share-toast-container {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.share-toast {
+    min-width: 220px;
+    max-width: min(340px, calc(100vw - 24px));
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.2);
+    animation: toastIn 0.2s ease-out;
+}
+
+.share-toast.success {
+    background: linear-gradient(135deg, #1f9d55, #16a34a);
+}
+
+.share-toast.error {
+    background: linear-gradient(135deg, #b91c1c, #dc2626);
+}
+
+.share-toast.fade-out {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* ========== RATING STARS ========== */
 .star {
     font-size: 18px;
@@ -775,5 +823,10 @@ body {
 
     .auth-card .card-body {
         padding: 24px 18px !important;
+    }
+
+    .share-toast-container {
+        right: 10px;
+        bottom: 10px;
     }
 }

@@ -8,6 +8,11 @@ const commentData = {};
 const clickTimers = new Map();
 let currentUser = null;
 
+function canViewPeoplePresent(user) {
+    const role = String(user?.role || '').toUpperCase();
+    return role === 'ADMIN' || role === 'CREATOR';
+}
+
 function formatAverageRating(value) {
     const numeric = Number(value || 0);
     return Number.isFinite(numeric) ? numeric.toFixed(1) : '0.0';
@@ -288,6 +293,14 @@ function renderPeoplePresent(users) {
 }
 
 async function loadPeoplePresent() {
+    if (!canViewPeoplePresent(currentUser)) {
+        const panel = document.getElementById('peoplePresentPanel');
+        if (panel) {
+            panel.remove();
+        }
+        return;
+    }
+
     ensurePeoplePresentContainer();
 
     try {
@@ -299,6 +312,87 @@ async function loadPeoplePresent() {
             list.innerHTML = '<div class="people-present-empty">Unable to load presence right now</div>';
         }
     }
+}
+
+function showShareToast(message, isError = false) {
+    let container = document.getElementById('shareToastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'shareToastContainer';
+        container.className = 'share-toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `share-toast ${isError ? 'error' : 'success'}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    window.setTimeout(() => {
+        toast.classList.add('fade-out');
+        window.setTimeout(() => toast.remove(), 260);
+    }, 2200);
+}
+
+async function fallbackCopyToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.setAttribute('readonly', 'readonly');
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-1000px';
+    textArea.style.left = '-1000px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    let copied = false;
+    try {
+        copied = document.execCommand('copy');
+    } catch (_) {
+        copied = false;
+    } finally {
+        textArea.remove();
+    }
+
+    return copied;
+}
+
+async function sharePost(postId) {
+    const shareUrl = `${window.location.origin}/media-detail.html?id=${postId}`;
+    const shareText = 'Check out this post on InstaShare';
+
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'InstaShare Post',
+                text: shareText,
+                url: shareUrl
+            });
+            return;
+        } catch (err) {
+            if (err && err.name === 'AbortError') {
+                return;
+            }
+        }
+    }
+
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+            showShareToast('Post link copied to clipboard');
+            return;
+        }
+    } catch (_) {
+        // Clipboard permissions can be blocked in some browsers.
+    }
+
+    const copied = await fallbackCopyToClipboard(shareUrl);
+    if (copied) {
+        showShareToast('Post link copied to clipboard');
+        return;
+    }
+
+    showShareToast('Unable to copy automatically. Open media detail and copy URL.', true);
 }
 
 async function renderFeed(page = 1) {
@@ -400,7 +494,7 @@ function createPostCard(post) {
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                     </svg>
                 </button>
-                <button class="action-btn" onclick="alert('Share feature coming soon')" title="Share">
+                <button class="action-btn" onclick="sharePost(${post.id})" title="Share">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="18" cy="5" r="3"></circle>
                         <circle cx="6" cy="12" r="3"></circle>
@@ -498,7 +592,7 @@ async function setPostRating(postId, value, event) {
         await rateMedia(postId, value);
         await loadRatingStatus(postId);
     } catch (err) {
-        alert('Unable to rate this post right now.');
+        showShareToast('Unable to rate this post right now.', true);
     }
 }
 
@@ -590,7 +684,7 @@ async function toggleLikePost(mediaId, doubleClickElement = null) {
         }
     } catch (err) {
         console.error('Error toggling like:', err);
-        alert('Error: ' + (err.message || 'Unable to like post'));
+        showShareToast(err.message || 'Unable to like post', true);
     }
 }
 
@@ -609,7 +703,7 @@ async function submitComment(postId) {
         }
     } catch (err) {
         console.error('Error adding comment:', err);
-        alert('Error: ' + (err.message || 'Unable to post comment'));
+        showShareToast(err.message || 'Unable to post comment', true);
     }
 }
 
@@ -751,6 +845,7 @@ window.toggleSavePost = toggleSavePost;
 window.handleMediaClick = handleMediaClick;
 window.handleMediaDoubleClick = handleMediaDoubleClick;
 window.setPostRating = setPostRating;
+window.sharePost = sharePost;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -761,7 +856,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     hydrateNavbar(currentUser);
     setupGlobalSearch();
-    loadPeoplePresent();
+    if (canViewPeoplePresent(currentUser)) {
+        loadPeoplePresent();
+    }
     renderFeed(1);
 });
 
@@ -769,5 +866,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 setInterval(() => {
     const currentPage = document.querySelector('.pagination .page-item.active a')?.textContent || 1;
     renderFeed(parseInt(currentPage));
-    loadPeoplePresent();
+    if (canViewPeoplePresent(currentUser)) {
+        loadPeoplePresent();
+    }
 }, 30000);

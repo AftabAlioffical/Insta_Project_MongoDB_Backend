@@ -1,3 +1,5 @@
+import './settings.js';
+
 const FOOTER_TEXT = '| All Rights Reserved by aftab ali';
 const CONTACT_EMAIL = 'aftabaliofficial7652482@gmail.com';
 
