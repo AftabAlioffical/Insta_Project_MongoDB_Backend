@@ -74,7 +74,7 @@ Backend (PHP 8.2)
 │   └── AuthController.php
 └── API endpoints (JWT authenticated)
 
-Database (MySQL 8.0)
+Database (MongoDB 7)
 ├── users (with roles: ADMIN, CREATOR, CONSUMER)
 ├── media (posts)
 ├── comments
@@ -87,9 +87,9 @@ Cache & Storage
 ```
 
 ### Key Fixes Applied
-1. **Comments API SQL Syntax Error ✅ FIXED**
-   - Issue: LIMIT/OFFSET passed as PDO bind parameters (?), MySQL requires literals
-   - Solution: Changed to `'LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset)`
+1. **Comments API Pagination Error ✅ FIXED**
+  - Issue: Pagination behavior was inconsistent in feed comment loading
+  - Solution: Updated backend pagination handling in CommentController
    - File: `/app/Controllers/CommentController.php`
    - Result: Comments now load correctly on feed
 
@@ -161,7 +161,7 @@ curl -H "Authorization: Bearer ADMIN_TOKEN" \
 | `/public/admin.html` | ✅ ENHANCED - Comprehensive admin panel with all features |
 | `/public/consumer-feed.html` | ✅ UPDATED - Added dashboard link to navbar & dropdown |
 | `/public/assets/css/style.css` | ✅ UPDATED - Dashboard & admin styling (if needed) |
-| `/app/Controllers/CommentController.php` | ✅ FIXED - SQL LIMIT/OFFSET syntax error |
+| `/app/Controllers/CommentController.php` | ✅ FIXED - comment pagination behavior |
 
 ---
 
@@ -203,7 +203,7 @@ curl -H "Authorization: Bearer ADMIN_TOKEN" \
 
 ### Comments Not Loading on Feed
 **Solution:** PHP container already restarted with SQL fix. If still broken:
-1. Check MySQL logs: `docker logs insta_project-mysql-1`
+1. Check PHP logs: `docker compose logs php --tail 100`
 2. Verify `/app/Controllers/CommentController.php` has the fix applied
 3. Restart PHP: `docker restart insta_project-php-1`
 
@@ -220,7 +220,7 @@ curl -H "Authorization: Bearer ADMIN_TOKEN" \
 ✅ **All Services Running:**
 - Frontend (nginx): `http://localhost:8080`
 - Backend API (PHP): Accessible via frontend proxy
-- MySQL Database: Healthy
+- MongoDB Database: Healthy
 - Redis Cache: Ready
 - MinIO Storage: Configured
 

@@ -52,10 +52,7 @@ app/
 config/
    config.php      Runtime constants and defaults
 database/
-   schema.sql              Base schema
-   seed.sql                Seed users and sample content
-   add_likes_replies.sql   Extra schema required for likes and comment replies
-   init.sh                 Database bootstrap script
+   migrate_mysql_to_mongo.php  Optional legacy MySQL -> MongoDB import utility
 nginx/
    default.conf     Frontend static hosting and /api proxy
 public/
@@ -99,7 +96,6 @@ README.md
 Notes:
 
 - For the Docker workflow, copying `.env.example` to `.env` is optional. `docker-compose.yml` already provides the runtime container environment.
-- `database/init.sh` is legacy MySQL tooling and is not required for the Mongo-only runtime stack.
 
 ### Clean reset
 
@@ -290,7 +286,7 @@ curl -X POST http://localhost:8080/api/media \
 
 ## Data Model
 
-Current application behavior depends on these tables:
+Current application behavior depends on these MongoDB collections:
 
 - `users`: accounts and role assignment
 - `media`: uploaded posts and metadata
@@ -298,12 +294,6 @@ Current application behavior depends on these tables:
 - `comments`: comments on posts
 - `ratings`: 1-to-5 post ratings
 - `likes`: per-user likes on posts
-
-Schema detail:
-
-- `database/schema.sql` provides the base schema.
-- `database/add_likes_replies.sql` adds the `likes` table and `comments.reply_to_id`.
-- `database/init.sh` applies both so new environments match the current code.
 
 Behavior detail:
 
@@ -326,8 +316,8 @@ Key runtime defaults:
 
 | Setting | Current default | Source |
 | --- | --- | --- |
-| Database host | `mysql` in Docker, `127.0.0.1` fallback | `docker-compose.yml`, `config/config.php` |
-| Database name | `insta_app` | Compose and config |
+| Mongo URI | `mongodb://mongodb:27017` in Docker | `docker-compose.yml`, `config/config.php` |
+| Mongo DB name | `insta_app` | Compose and config |
 | JWT secret | `supersecretkey123` in Docker | `docker-compose.yml` |
 | Frontend base URL | `http://localhost:8080` | `config/config.php` / `.env.example` |
 | Redis host | `redis` in Docker | `docker-compose.yml` |
@@ -353,15 +343,13 @@ This clears cache entries and local rate-limit keys.
 - Log out and log back in.
 - Use `GET /api/auth/me` to verify the current role being resolved by the backend.
 
-### Fresh setup has likes-related SQL errors
+### Legacy MySQL import is needed
 
-Run the bootstrap script again:
+If you need to import old MySQL data, run:
 
 ```bash
-docker compose exec php bash /var/www/html/database/init.sh
+docker compose exec php php /var/www/html/database/migrate_mysql_to_mongo.php
 ```
-
-The current bootstrap now applies `database/add_likes_replies.sql` in addition to the base schema.
 
 ### Upload succeeds but media files are missing from the UI
 
