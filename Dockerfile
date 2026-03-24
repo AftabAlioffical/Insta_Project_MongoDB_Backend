@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo_mysql mysqli mbstring zip exif \
     && docker-php-ext-enable pdo_mysql \
     && pecl install redis \
-    && docker-php-ext-enable redis
+    && pecl install mongodb \
+    && docker-php-ext-enable redis mongodb
 
 # Enable Apache rewrite and headers
 RUN a2enmod rewrite headers \

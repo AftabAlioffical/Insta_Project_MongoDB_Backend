@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Services\Database;
+use App\Services\MongoDatabase;
 use App\Services\Response;
 use App\Middleware\AuthMiddleware;
 
@@ -19,26 +19,26 @@ class CommentController
         $perPage = ITEMS_PER_PAGE;
         $offset = ($page - 1) * $perPage;
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         // Check if media exists
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
+        $media = $db->findOne('media', ['id' => $mediaId]);
         if (!$media) {
             return Response::send(Response::error('Media not found', 404));
         }
 
-        $total = $db->fetch(
-            'SELECT COUNT(*) as count FROM comments WHERE media_id = ?',
-            [$mediaId]
-        )['count'];
+        $total = $db->count('comments', ['media_id' => $mediaId]);
+        $comments = $db->findMany('comments', ['media_id' => $mediaId], [
+            'sort' => ['id' => -1],
+            'limit' => intval($perPage),
+            'skip' => intval($offset)
+        ]);
 
-        $comments = $db->fetchAll(
-            'SELECT c.*, u.email as user_email, u.email as user_name FROM comments c
-             JOIN users u ON c.user_id = u.id
-             WHERE c.media_id = ?
-             ORDER BY c.created_at DESC LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset),
-            [$mediaId]
-        );
+        foreach ($comments as &$comment) {
+            $user = $db->findOne('users', ['id' => intval($comment['user_id'])], ['projection' => ['email' => 1]]);
+            $comment['user_email'] = $user['email'] ?? '';
+            $comment['user_name'] = $comment['user_email'];
+        }
 
         // Sanitize comment text
         foreach ($comments as &$comment) {
@@ -73,27 +73,24 @@ class CommentController
             return Response::send(Response::error('Comment too long', 400));
         }
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         // Check if media exists
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
+        $media = $db->findOne('media', ['id' => $mediaId]);
         if (!$media) {
             return Response::send(Response::error('Media not found', 404));
         }
 
         try {
-            $commentId = $db->insert('comments', [
+            $commentId = $db->insertOne('comments', [
                 'media_id' => $mediaId,
-                'user_id' => $auth['user']['userId'],
+                'user_id' => intval($auth['user']['userId']),
                 'text' => $text
             ]);
 
-            $comment = $db->fetch(
-                'SELECT c.*, u.email as user_email FROM comments c
-                 JOIN users u ON c.user_id = u.id
-                 WHERE c.id = ?',
-                [$commentId]
-            );
+            $comment = $db->findOne('comments', ['id' => intval($commentId)]);
+            $user = $db->findOne('users', ['id' => intval($comment['user_id'] ?? 0)], ['projection' => ['email' => 1]]);
+            $comment['user_email'] = $user['email'] ?? '';
 
             $comment['text'] = htmlspecialchars($comment['text'], ENT_QUOTES, 'UTF-8');
 
@@ -117,9 +114,9 @@ class CommentController
         }
 
         $commentId = intval($commentId);
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
-        $comment = $db->fetch('SELECT user_id FROM comments WHERE id = ?', [$commentId]);
+        $comment = $db->findOne('comments', ['id' => $commentId], ['projection' => ['user_id' => 1]]);
 
         if (!$comment) {
             return Response::send(Response::error('Comment not found', 404));
@@ -131,7 +128,7 @@ class CommentController
         }
 
         try {
-            $db->delete('comments', 'id = ?', [$commentId]);
+            $db->deleteOne('comments', ['id' => $commentId]);
             return Response::send(Response::success(null, 'Comment deleted successfully'));
         } catch (\Exception $e) {
             error_log("Comment deletion error: " . $e->getMessage());

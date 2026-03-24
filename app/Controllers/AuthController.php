@@ -2,8 +2,8 @@
 
 namespace App\Controllers;
 
-use App\Services\Database;
 use App\Services\JWTService;
+use App\Services\MongoDatabase;
 use App\Services\Response;
 
 class AuthController
@@ -37,10 +37,11 @@ class AuthController
             return Response::send(Response::error('Invalid email format', 400));
         }
 
-        $db = Database::getInstance();
-        $user = $db->fetch(
-            'SELECT id, email, display_name, password_hash, role, bio, avatar_url FROM users WHERE email = ?',
-            [$email]
+        $db = MongoDatabase::getInstance();
+        $user = $db->findOne(
+            'users',
+            ['email' => $email, 'password_hash' => ['$exists' => true]],
+            ['sort' => ['updated_at' => -1, 'id' => -1]]
         );
 
         if (!$user || !password_verify($password, $user['password_hash'])) {
@@ -67,11 +68,8 @@ class AuthController
             return Response::send(Response::error($auth['error'], 401));
         }
 
-        $db = Database::getInstance();
-        $user = $db->fetch(
-            'SELECT id, email, display_name AS displayName, role, bio, avatar_url AS avatarUrl FROM users WHERE id = ?',
-            [$auth['user']['userId']]
-        );
+        $db = MongoDatabase::getInstance();
+        $user = $db->findOne('users', ['id' => intval($auth['user']['userId'])]);
 
         if (!$user) {
             return Response::send(Response::error('User not found', 404));
@@ -111,9 +109,8 @@ class AuthController
             return Response::send(Response::error('Name must be at most 60 characters', 400));
         }
 
-        $db = Database::getInstance();
-        // check for existing user
-        $existing = $db->fetch('SELECT id FROM users WHERE email = ?', [$email]);
+        $db = MongoDatabase::getInstance();
+        $existing = $db->findOne('users', ['email' => $email], ['projection' => ['id' => 1]]);
         if ($existing) {
             return Response::send(Response::error('Email already registered', 409));
         }
@@ -121,18 +118,18 @@ class AuthController
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $role = 'CONSUMER';
         $displayName = $displayNameInput !== '' ? $displayNameInput : explode('@', $email)[0];
-        $db->execute(
-            'INSERT INTO users (email, display_name, password_hash, role) VALUES (?, ?, ?, ?)',
-            [$email, $displayName, $hash, $role]
-        );
-        $userId = $db->lastInsertId();
+        $userId = $db->insertOne('users', [
+            'email' => $email,
+            'display_name' => $displayName,
+            'password_hash' => $hash,
+            'role' => $role,
+            'bio' => '',
+            'avatar_url' => null
+        ]);
 
         $token = JWTService::generateToken($userId, $email, $role);
 
-        $user = $db->fetch(
-            'SELECT id, email, display_name AS displayName, role, bio, avatar_url AS avatarUrl FROM users WHERE id = ?',
-            [$userId]
-        );
+        $user = $db->findOne('users', ['id' => intval($userId)]);
 
         return Response::send(Response::success([
             'token' => $token,
@@ -233,38 +230,38 @@ class AuthController
         }
 
         // Create or update user in database
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
         $email = $googleUser['email'];
         $googleId = $googleUser['id'];
         $displayName = $googleUser['name'] ?? explode('@', $email)[0];
         $avatarUrl = $googleUser['picture'] ?? null;
 
         // Check if user exists
-        $user = $db->fetch('SELECT id, email, display_name, role FROM users WHERE email = ?', [$email]);
+        $user = $db->findOne('users', ['email' => $email], ['sort' => ['updated_at' => -1, 'id' => -1]]);
 
         if (!$user) {
             // Create new user from Google signup
-            $db->execute(
-                'INSERT INTO users (email, display_name, role, avatar_url, password_hash) VALUES (?, ?, ?, ?, ?)',
-                [$email, $displayName, 'CONSUMER', $avatarUrl, password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT)]
-            );
-            $userId = $db->lastInsertId();
+            $userId = $db->insertOne('users', [
+                'email' => $email,
+                'display_name' => $displayName,
+                'role' => 'CONSUMER',
+                'avatar_url' => $avatarUrl,
+                'password_hash' => password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT),
+                'bio' => ''
+            ]);
             $role = 'CONSUMER';
         } else {
             // Update existing user's avatar if available
             $userId = $user['id'];
             $role = $user['role'];
             if ($avatarUrl) {
-                $db->execute('UPDATE users SET avatar_url = ? WHERE id = ?', [$avatarUrl, $userId]);
+                $db->updateOne('users', ['id' => intval($userId)], ['avatar_url' => $avatarUrl]);
             }
         }
 
         $token = JWTService::generateToken($userId, $email, $role);
 
-        $userData = $db->fetch(
-            'SELECT id, email, display_name AS displayName, role, bio, avatar_url AS avatarUrl FROM users WHERE id = ?',
-            [$userId]
-        );
+        $userData = $db->findOne('users', ['id' => intval($userId)]);
 
         // Redirect to frontend with token (using POST to be safer with tokens)
         header('Location: /consumer-feed.html?token=' . urlencode($token));

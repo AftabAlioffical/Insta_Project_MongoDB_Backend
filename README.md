@@ -1,6 +1,8 @@
 # Insta_Project
 
-Insta_Project is a Dockerized Instagram-style media sharing application with a PHP API, a static HTML frontend, MySQL persistence, Redis-backed caching/rate limiting, and an admin dashboard that can manage users, posts, comments, likes, and role assignment.
+Insta_Project is a Dockerized Instagram-style media sharing application with a PHP API, a static HTML frontend, MongoDB persistence, Redis-backed caching/rate limiting, and an admin dashboard that can manage users, posts, comments, likes, and role assignment.
+
+MongoDB migration support has been added at the infrastructure level (MongoDB container, PHP Mongo extension, and data migration script), and backend API controllers now execute against MongoDB.
 
 ## Current State
 
@@ -10,7 +12,7 @@ Insta_Project is a Dockerized Instagram-style media sharing application with a P
 - Uploads are stored locally in `public/assets/uploads`
 - Redis is actively used for feed/search caching and rate limiting
 - MinIO is provisioned in Docker, but the current upload controller still writes files to local disk
-- Profile display name, bio, and avatar edits are currently stored in browser `localStorage`, not persisted in MySQL
+- Profile display name, bio, and avatar edits are persisted in MongoDB
 
 ## Architecture
 
@@ -18,7 +20,7 @@ Insta_Project is a Dockerized Instagram-style media sharing application with a P
 | --- | --- | --- | --- |
 | `frontend` | Nginx | `8080` | Serves static HTML/CSS/JS from `public/` and proxies `/api/*` to PHP |
 | `php` | PHP 8.2 + Apache | internal | Runs the REST API and router in `public/index.php` |
-| `mysql` | MySQL 8.0 | `3306` | Stores users, posts, comments, ratings, likes, and tags |
+| `mongodb` | MongoDB 7 | `27017` | Target datastore for backend migration from MySQL |
 | `redis` | Redis 7 | `6379` | Used for login/upload throttling and feed/search/media cache entries |
 | `minio` | MinIO | `9000`, `9001` | Available for S3-compatible storage, not currently used by `MediaController` |
 
@@ -28,7 +30,7 @@ Request flow:
 2. Frontend JavaScript calls `/api/...`.
 3. Nginx proxies `/api` requests to the PHP container.
 4. PHP routes the request in `public/index.php` and dispatches a controller.
-5. Controllers use `Database`, `CacheService`, `JWTService`, and `AuthMiddleware` as needed.
+5. Controllers use `MongoDatabase`, `CacheService`, `JWTService`, and `AuthMiddleware` as needed.
 
 ## Key Features
 
@@ -74,11 +76,17 @@ README.md
     docker compose up --build -d
     ```
 
-2. Initialize the database:
+2. (Optional) If you have legacy MySQL data, seed MongoDB from it:
 
-    ```bash
-    docker compose exec php bash /var/www/html/database/init.sh
-    ```
+   ```bash
+   # set legacy source credentials only for this import
+   $env:LEGACY_MYSQL_HOST="127.0.0.1"
+   $env:LEGACY_MYSQL_PORT="3306"
+   $env:LEGACY_MYSQL_DB="insta_app"
+   $env:LEGACY_MYSQL_USER="root"
+   $env:LEGACY_MYSQL_PASS="root"
+   docker compose exec php php /var/www/html/database/migrate_mysql_to_mongo.php
+   ```
 
 3. Open the app:
 
@@ -91,16 +99,15 @@ README.md
 Notes:
 
 - For the Docker workflow, copying `.env.example` to `.env` is optional. `docker-compose.yml` already provides the runtime container environment.
-- `database/init.sh` now applies `schema.sql`, `seed.sql`, and `add_likes_replies.sql`, so a fresh setup includes the `likes` table and `comments.reply_to_id` column required by the current codebase.
+- `database/init.sh` is legacy MySQL tooling and is not required for the Mongo-only runtime stack.
 
 ### Clean reset
 
-Use this when you want a fully fresh database and cache state:
+Use this when you want a fully fresh Mongo/Redis/MinIO state:
 
 ```bash
 docker compose down -v
 docker compose up --build -d
-docker compose exec php bash /var/www/html/database/init.sh
 ```
 
 ## Seeded Accounts

@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Services\Database;
+use App\Services\MongoDatabase;
 use App\Services\Response;
 use App\Middleware\AuthMiddleware;
 
@@ -15,33 +15,29 @@ class LikeController
         }
 
         $mediaId = intval($mediaId);
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         // Check if media exists
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
+        $media = $db->findOne('media', ['id' => $mediaId]);
         if (!$media) {
             return Response::send(Response::error('Media not found', 404));
         }
 
-        // Get like count
-        $result = $db->fetch(
-            'SELECT COUNT(*) as count FROM likes WHERE media_id = ?',
-            [$mediaId]
-        );
+        $count = $db->count('likes', ['media_id' => $mediaId]);
 
         // Check if current user liked this
         $auth = AuthMiddleware::verify();
         $userLiked = false;
         if ($auth['authenticated']) {
-            $like = $db->fetch(
-                'SELECT id FROM likes WHERE media_id = ? AND user_id = ?',
-                [$mediaId, $auth['user']['userId']]
-            );
+            $like = $db->findOne('likes', [
+                'media_id' => $mediaId,
+                'user_id' => intval($auth['user']['userId'])
+            ]);
             $userLiked = !empty($like);
         }
 
         return Response::send(Response::success([
-            'count' => $result['count'],
+            'count' => $count,
             'userLiked' => $userLiked
         ]));
     }
@@ -58,44 +54,39 @@ class LikeController
         }
 
         $mediaId = intval($mediaId);
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         // Check if media exists
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
+        $media = $db->findOne('media', ['id' => $mediaId]);
         if (!$media) {
             return Response::send(Response::error('Media not found', 404));
         }
 
         try {
             // Check if already liked
-            $existing = $db->fetch(
-                'SELECT id FROM likes WHERE media_id = ? AND user_id = ?',
-                [$mediaId, $auth['user']['userId']]
-            );
+            $existing = $db->findOne('likes', [
+                'media_id' => $mediaId,
+                'user_id' => intval($auth['user']['userId'])
+            ]);
 
             if ($existing) {
                 // Unlike
-                $db->execute('DELETE FROM likes WHERE media_id = ? AND user_id = ?', 
-                    [$mediaId, $auth['user']['userId']]);
+                $db->deleteOne('likes', ['id' => intval($existing['id'])]);
                 $liked = false;
             } else {
                 // Like
-                $db->insert('likes', [
+                $db->insertOne('likes', [
                     'media_id' => $mediaId,
-                    'user_id' => $auth['user']['userId']
+                    'user_id' => intval($auth['user']['userId'])
                 ]);
                 $liked = true;
             }
 
-            // Get updated like count
-            $result = $db->fetch(
-                'SELECT COUNT(*) as count FROM likes WHERE media_id = ?',
-                [$mediaId]
-            );
+            $count = $db->count('likes', ['media_id' => $mediaId]);
 
             return Response::send(Response::success([
                 'liked' => $liked,
-                'count' => $result['count']
+                'count' => $count
             ], $liked ? 'Liked' : 'Unliked'));
         } catch (\Exception $e) {
             return Response::send(Response::error($e->getMessage(), 500));

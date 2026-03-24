@@ -3,7 +3,7 @@
 namespace App\Controllers;
 
 use App\Middleware\AuthMiddleware;
-use App\Services\Database;
+use App\Services\MongoDatabase;
 use App\Services\Response;
 
 class UserController
@@ -15,54 +15,42 @@ class UserController
         }
 
         $userId = intval($userId);
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         // Get user
-        $user = $db->fetch(
-            'SELECT id, email, role, display_name AS displayName, bio, avatar_url AS avatarUrl, created_at FROM users WHERE id = ?',
-            [$userId]
-        );
+        $rawUser = $db->findOne('users', ['id' => $userId], [
+            'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'display_name' => 1, 'bio' => 1, 'avatar_url' => 1, 'created_at' => 1]
+        ]);
+
+        $user = self::toProfileUser($rawUser);
 
         if (!$user) {
             return Response::send(Response::error('User not found', 404));
         }
 
-        $postCount = $db->fetch(
-            'SELECT COUNT(*) as count FROM media WHERE creator_id = ?',
-            [$userId]
-        )['count'];
+        $postCount = $db->count('media', ['creator_id' => $userId]);
 
         // Get user's posts
-        $posts = $db->fetchAll(
-            'SELECT id, title, caption, url, type, created_at
-             FROM media
-             WHERE creator_id = ?
-             ORDER BY created_at DESC
-             LIMIT 20',
-            [$userId]
-        );
+        $posts = $db->findMany('media', ['creator_id' => $userId], [
+            'projection' => ['id' => 1, 'title' => 1, 'caption' => 1, 'url' => 1, 'type' => 1, 'created_at' => 1],
+            'sort' => ['id' => -1],
+            'limit' => 20
+        ]);
 
         // Get like count on all user's posts
-        $likeCount = $db->fetch(
-            'SELECT COUNT(*) as count FROM likes l 
-             JOIN media m ON l.media_id = m.id 
-             WHERE m.creator_id = ?',
-            [$userId]
-        );
-
-        // Get comment count on all user's posts
-        $commentCount = $db->fetch(
-            'SELECT COUNT(*) as count FROM comments c 
-             JOIN media m ON c.media_id = m.id 
-             WHERE m.creator_id = ?',
-            [$userId]
-        );
+        $likeCount = 0;
+        $commentCount = 0;
+        foreach ($posts as $post) {
+            $postId = intval($post['id'] ?? 0);
+            $likeCount += $db->count('likes', ['media_id' => $postId]);
+            $commentCount += $db->count('comments', ['media_id' => $postId]);
+        }
 
         $user['displayName'] = self::resolveDisplayName($user['displayName'] ?? null, $user['email']);
         $user['bio'] = $user['bio'] ?? '';
         $user['posts'] = $posts;
-        $user['totalLikes'] = intval($likeCount['count']);
-        $user['totalComments'] = intval($commentCount['count']);
+        $user['totalLikes'] = intval($likeCount);
+        $user['totalComments'] = intval($commentCount);
         $user['postCount'] = intval($postCount);
 
         return Response::send(Response::success($user));
@@ -106,10 +94,10 @@ class UserController
             return Response::send(Response::success(self::fetchUserProfile($auth['user']['userId']), 'No changes applied'));
         }
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         try {
-            $db->update('users', $updates, 'id = ?', [$auth['user']['userId']]);
+            $db->updateOne('users', ['id' => intval($auth['user']['userId'])], $updates);
             return Response::send(Response::success(self::fetchUserProfile($auth['user']['userId']), 'Profile updated successfully'));
         } catch (\Exception $e) {
             error_log('User updateProfile error: ' . $e->getMessage());
@@ -152,8 +140,8 @@ class UserController
             mkdir(UPLOAD_DIR, 0755, true);
         }
 
-        $db = Database::getInstance();
-        $existing = $db->fetch('SELECT avatar_url FROM users WHERE id = ?', [$auth['user']['userId']]);
+        $db = MongoDatabase::getInstance();
+        $existing = $db->findOne('users', ['id' => intval($auth['user']['userId'])], ['projection' => ['avatar_url' => 1]]);
 
         $filename = 'avatar_' . intval($auth['user']['userId']) . '_' . uniqid() . '.' . $ext;
         $destination = UPLOAD_DIR . $filename;
@@ -171,7 +159,7 @@ class UserController
             }
 
             $avatarUrl = '/assets/uploads/' . $filename;
-            $db->update('users', ['avatar_url' => $avatarUrl], 'id = ?', [$auth['user']['userId']]);
+            $db->updateOne('users', ['id' => intval($auth['user']['userId'])], ['avatar_url' => $avatarUrl]);
 
             return Response::send(Response::success(self::fetchUserProfile($auth['user']['userId']), 'Avatar updated successfully'));
         } catch (\Exception $e) {
@@ -191,28 +179,45 @@ class UserController
             return Response::send(Response::error('Query too short', 400));
         }
 
-        $db = Database::getInstance();
-
-        // Prefix matches first, then any-position matches
-        $users = $db->fetchAll(
-            'SELECT id, email, role, display_name AS displayName, avatar_url AS avatarUrl
-             FROM users
-             WHERE email LIKE ? OR display_name LIKE ?
-             ORDER BY
-                CASE
-                    WHEN display_name LIKE ? THEN 0
-                    WHEN email LIKE ? THEN 1
-                    ELSE 2
-                END,
-                COALESCE(NULLIF(display_name, ""), email) ASC
-             LIMIT 10',
-            [
-                '%' . $query . '%',
-                '%' . $query . '%',
-                $query . '%',
-                $query . '%'
+        $db = MongoDatabase::getInstance();
+        $candidates = $db->findMany('users', [
+            '$or' => [
+                ['email' => ['$regex' => $query, '$options' => 'i']],
+                ['display_name' => ['$regex' => $query, '$options' => 'i']]
             ]
-        );
+        ], [
+            'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'display_name' => 1, 'avatar_url' => 1],
+            'limit' => 50
+        ]);
+
+        usort($candidates, function ($a, $b) use ($query) {
+            $aDisplay = (string) ($a['display_name'] ?? '');
+            $bDisplay = (string) ($b['display_name'] ?? '');
+            $aEmail = (string) ($a['email'] ?? '');
+            $bEmail = (string) ($b['email'] ?? '');
+
+            $aRank = (stripos($aDisplay, $query) === 0) ? 0 : ((stripos($aEmail, $query) === 0) ? 1 : 2);
+            $bRank = (stripos($bDisplay, $query) === 0) ? 0 : ((stripos($bEmail, $query) === 0) ? 1 : 2);
+
+            if ($aRank !== $bRank) {
+                return $aRank <=> $bRank;
+            }
+
+            $aKey = strtolower(trim($aDisplay) !== '' ? $aDisplay : $aEmail);
+            $bKey = strtolower(trim($bDisplay) !== '' ? $bDisplay : $bEmail);
+            return strcmp($aKey, $bKey);
+        });
+
+        $users = [];
+        foreach (array_slice($candidates, 0, 10) as $u) {
+            $users[] = [
+                'id' => intval($u['id'] ?? 0),
+                'email' => $u['email'] ?? '',
+                'role' => $u['role'] ?? 'CONSUMER',
+                'displayName' => $u['display_name'] ?? null,
+                'avatarUrl' => $u['avatar_url'] ?? null
+            ];
+        }
 
         return Response::send(Response::success($users));
     }
@@ -234,45 +239,70 @@ class UserController
         $hours = isset($_GET['hours']) ? intval($_GET['hours']) : 24;
         $hours = max(1, min(168, $hours));
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
-        $activitySql =
-            'SELECT creator_id AS user_id, created_at AS activity_at FROM media WHERE created_at >= (NOW() - INTERVAL ' . intval($hours) . ' HOUR) ' .
-            'UNION ALL ' .
-            'SELECT user_id, created_at AS activity_at FROM comments WHERE created_at >= (NOW() - INTERVAL ' . intval($hours) . ' HOUR) ' .
-            'UNION ALL ' .
-            'SELECT user_id, created_at AS activity_at FROM likes WHERE created_at >= (NOW() - INTERVAL ' . intval($hours) . ' HOUR) ' .
-            'UNION ALL ' .
-            'SELECT user_id, created_at AS activity_at FROM ratings WHERE created_at >= (NOW() - INTERVAL ' . intval($hours) . ' HOUR)';
+        $threshold = strtotime('-' . intval($hours) . ' hours');
+        $activity = [];
 
-        $users = $db->fetchAll(
-            'SELECT u.id,
-                    u.email,
-                    u.role,
-                    COALESCE(NULLIF(u.display_name, ""), SUBSTRING_INDEX(u.email, "@", 1)) AS displayName,
-                    u.avatar_url AS avatarUrl,
-                    MAX(a.activity_at) AS lastActiveAt,
-                    TIMESTAMPDIFF(MINUTE, MAX(a.activity_at), NOW()) AS minutesAgo
-             FROM users u
-             JOIN (' . $activitySql . ') a ON a.user_id = u.id
-             GROUP BY u.id, u.email, u.role, u.display_name, u.avatar_url
-             ORDER BY lastActiveAt DESC
-             LIMIT ' . intval($limit)
-        );
+        foreach ($db->findMany('media', [], ['projection' => ['creator_id' => 1, 'created_at' => 1]]) as $m) {
+            self::collectActivity($activity, intval($m['creator_id'] ?? 0), $m['created_at'] ?? null, $threshold);
+        }
+        foreach ($db->findMany('comments', [], ['projection' => ['user_id' => 1, 'created_at' => 1]]) as $c) {
+            self::collectActivity($activity, intval($c['user_id'] ?? 0), $c['created_at'] ?? null, $threshold);
+        }
+        foreach ($db->findMany('likes', [], ['projection' => ['user_id' => 1, 'created_at' => 1]]) as $l) {
+            self::collectActivity($activity, intval($l['user_id'] ?? 0), $l['created_at'] ?? null, $threshold);
+        }
+        foreach ($db->findMany('ratings', [], ['projection' => ['user_id' => 1, 'created_at' => 1]]) as $r) {
+            self::collectActivity($activity, intval($r['user_id'] ?? 0), $r['created_at'] ?? null, $threshold);
+        }
+
+        arsort($activity);
+
+        $users = [];
+        foreach (array_slice(array_keys($activity), 0, intval($limit)) as $activeUserId) {
+            $u = $db->findOne('users', ['id' => intval($activeUserId)], [
+                'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'display_name' => 1, 'avatar_url' => 1]
+            ]);
+            if (!$u) {
+                continue;
+            }
+
+            $minutesAgo = intval(max(0, floor((time() - intval($activity[$activeUserId])) / 60)));
+            $users[] = [
+                'id' => intval($u['id']),
+                'email' => $u['email'] ?? '',
+                'role' => $u['role'] ?? 'CONSUMER',
+                'displayName' => self::resolveDisplayName($u['display_name'] ?? null, $u['email'] ?? ''),
+                'avatarUrl' => $u['avatar_url'] ?? null,
+                'lastActiveAt' => date('Y-m-d H:i:s', intval($activity[$activeUserId])),
+                'minutesAgo' => $minutesAgo
+            ];
+        }
 
         if (empty($users)) {
-            $users = $db->fetchAll(
-                'SELECT id,
-                        email,
-                        role,
-                        COALESCE(NULLIF(display_name, ""), SUBSTRING_INDEX(email, "@", 1)) AS displayName,
-                        avatar_url AS avatarUrl,
-                        updated_at AS lastActiveAt,
-                        TIMESTAMPDIFF(MINUTE, updated_at, NOW()) AS minutesAgo
-                 FROM users
-                 ORDER BY updated_at DESC
-                 LIMIT ' . intval($limit)
-            );
+            $fallbackUsers = $db->findMany('users', [], [
+                'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'display_name' => 1, 'avatar_url' => 1, 'updated_at' => 1],
+                'sort' => ['id' => -1],
+                'limit' => intval($limit)
+            ]);
+
+            foreach ($fallbackUsers as $u) {
+                $updatedTs = strtotime((string) ($u['updated_at'] ?? ''));
+                if ($updatedTs === false) {
+                    $updatedTs = time();
+                }
+
+                $users[] = [
+                    'id' => intval($u['id'] ?? 0),
+                    'email' => $u['email'] ?? '',
+                    'role' => $u['role'] ?? 'CONSUMER',
+                    'displayName' => self::resolveDisplayName($u['display_name'] ?? null, $u['email'] ?? ''),
+                    'avatarUrl' => $u['avatar_url'] ?? null,
+                    'lastActiveAt' => date('Y-m-d H:i:s', $updatedTs),
+                    'minutesAgo' => intval(max(0, floor((time() - $updatedTs) / 60)))
+                ];
+            }
         }
 
         foreach ($users as &$user) {
@@ -285,13 +315,12 @@ class UserController
 
     private static function fetchUserProfile($userId)
     {
-        $db = Database::getInstance();
-        $user = $db->fetch(
-            'SELECT id, email, role, display_name AS displayName, bio, avatar_url AS avatarUrl, created_at
-             FROM users
-             WHERE id = ?',
-            [$userId]
-        );
+        $db = MongoDatabase::getInstance();
+        $raw = $db->findOne('users', ['id' => intval($userId)], [
+            'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'display_name' => 1, 'bio' => 1, 'avatar_url' => 1, 'created_at' => 1]
+        ]);
+
+        $user = self::toProfileUser($raw);
 
         if (!$user) {
             return null;
@@ -310,5 +339,38 @@ class UserController
         }
 
         return explode('@', (string) $email)[0];
+    }
+
+    private static function toProfileUser($raw)
+    {
+        if (!$raw) {
+            return null;
+        }
+
+        return [
+            'id' => intval($raw['id'] ?? 0),
+            'email' => $raw['email'] ?? '',
+            'role' => $raw['role'] ?? 'CONSUMER',
+            'displayName' => $raw['display_name'] ?? null,
+            'bio' => $raw['bio'] ?? null,
+            'avatarUrl' => $raw['avatar_url'] ?? null,
+            'created_at' => $raw['created_at'] ?? null
+        ];
+    }
+
+    private static function collectActivity(&$activity, $userId, $dateValue, $threshold)
+    {
+        if ($userId <= 0 || empty($dateValue)) {
+            return;
+        }
+
+        $ts = strtotime((string) $dateValue);
+        if ($ts === false || $ts < $threshold) {
+            return;
+        }
+
+        if (!isset($activity[$userId]) || $ts > $activity[$userId]) {
+            $activity[$userId] = $ts;
+        }
     }
 }

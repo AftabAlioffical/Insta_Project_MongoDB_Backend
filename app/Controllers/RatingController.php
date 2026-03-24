@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Services\Database;
+use App\Services\MongoDatabase;
 use App\Services\Response;
 use App\Middleware\AuthMiddleware;
 
@@ -16,32 +16,32 @@ class RatingController
 
         $mediaId = intval($mediaId);
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         // Check if media exists
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
+        $media = $db->findOne('media', ['id' => $mediaId]);
         if (!$media) {
             return Response::send(Response::error('Media not found', 404));
         }
 
-        $ratings = $db->fetchAll(
-            'SELECT r.*, u.email as user_email FROM ratings r
-             JOIN users u ON r.user_id = u.id
-             WHERE r.media_id = ?
-             ORDER BY r.created_at DESC',
-            [$mediaId]
-        );
+        $ratings = $db->findMany('ratings', ['media_id' => $mediaId], ['sort' => ['id' => -1]]);
+        foreach ($ratings as &$rating) {
+            $user = $db->findOne('users', ['id' => intval($rating['user_id'])], ['projection' => ['email' => 1]]);
+            $rating['user_email'] = $user['email'] ?? '';
+        }
 
-        $stats = $db->fetch(
-            'SELECT COUNT(*) as count, AVG(value) as average FROM ratings WHERE media_id = ?',
-            [$mediaId]
-        );
+        $count = count($ratings);
+        $sum = 0;
+        foreach ($ratings as $r) {
+            $sum += intval($r['value'] ?? 0);
+        }
+        $average = $count > 0 ? round($sum / $count, 2) : 0;
 
         return Response::send(Response::success([
             'ratings' => $ratings,
             'statistics' => [
-                'totalRatings' => intval($stats['count']),
-                'averageRating' => $stats['average'] ? round($stats['average'], 2) : 0
+                'totalRatings' => $count,
+                'averageRating' => $average
             ]
         ]));
     }
@@ -71,44 +71,41 @@ class RatingController
             return Response::send(Response::error('Rating must be between 1 and 5', 400));
         }
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         // Check if media exists
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
+        $media = $db->findOne('media', ['id' => $mediaId]);
         if (!$media) {
             return Response::send(Response::error('Media not found', 404));
         }
 
         try {
             // Check if user already rated this media
-            $existing = $db->fetch(
-                'SELECT id FROM ratings WHERE media_id = ? AND user_id = ?',
-                [$mediaId, $auth['user']['userId']]
-            );
+            $existing = $db->findOne('ratings', [
+                'media_id' => $mediaId,
+                'user_id' => intval($auth['user']['userId'])
+            ]);
 
             if ($existing) {
                 // Update existing rating
-                $db->update('ratings', ['value' => $value], 'id = ?', [$existing['id']]);
-                $ratingId = $existing['id'];
+                $ratingId = intval($existing['id']);
+                $db->updateOne('ratings', ['id' => $ratingId], ['value' => $value]);
                 $message = 'Rating updated successfully';
                 $statusCode = 200;
             } else {
                 // Create new rating
-                $ratingId = $db->insert('ratings', [
+                $ratingId = $db->insertOne('ratings', [
                     'media_id' => $mediaId,
-                    'user_id' => $auth['user']['userId'],
+                    'user_id' => intval($auth['user']['userId']),
                     'value' => $value
                 ]);
                 $message = 'Rating added successfully';
                 $statusCode = 201;
             }
 
-            $rating = $db->fetch(
-                'SELECT r.*, u.email as user_email FROM ratings r
-                 JOIN users u ON r.user_id = u.id
-                 WHERE r.id = ?',
-                [$ratingId]
-            );
+            $rating = $db->findOne('ratings', ['id' => intval($ratingId)]);
+            $user = $db->findOne('users', ['id' => intval($rating['user_id'] ?? 0)], ['projection' => ['email' => 1]]);
+            $rating['user_email'] = $user['email'] ?? '';
 
             return Response::send(Response::success($rating, $message, $statusCode));
         } catch (\Exception $e) {
@@ -130,9 +127,9 @@ class RatingController
         }
 
         $ratingId = intval($ratingId);
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
-        $rating = $db->fetch('SELECT user_id FROM ratings WHERE id = ?', [$ratingId]);
+        $rating = $db->findOne('ratings', ['id' => $ratingId], ['projection' => ['user_id' => 1]]);
 
         if (!$rating) {
             return Response::send(Response::error('Rating not found', 404));
@@ -144,7 +141,7 @@ class RatingController
         }
 
         try {
-            $db->delete('ratings', 'id = ?', [$ratingId]);
+            $db->deleteOne('ratings', ['id' => $ratingId]);
             return Response::send(Response::success(null, 'Rating deleted successfully'));
         } catch (\Exception $e) {
             error_log("Rating deletion error: " . $e->getMessage());

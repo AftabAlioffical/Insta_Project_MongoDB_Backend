@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Services\Database;
+use App\Services\MongoDatabase;
 use App\Services\Response;
 use App\Services\CacheService;
 
@@ -38,151 +38,48 @@ class SearchController
         $perPage = ITEMS_PER_PAGE;
         $offset = ($page - 1) * $perPage;
 
-        $db = Database::getInstance();
-        $params = [];
-        $conditions = [];
+        $db = MongoDatabase::getInstance();
+        $allMedia = $db->findMany('media', [], ['sort' => ['id' => -1]]);
+        $filtered = [];
 
-        // Build search conditions
-        if (!empty($query)) {
-            $conditions[] = '(MATCH(title, caption) AGAINST(? IN BOOLEAN MODE) OR title LIKE ? OR caption LIKE ?)';
-            $params[] = $query;
-            $params[] = "%{$query}%";
-            $params[] = "%{$query}%";
+        foreach ($allMedia as $item) {
+            $creator = $db->findOne('users', ['id' => intval($item['creator_id'] ?? 0)], [
+                'projection' => ['email' => 1, 'display_name' => 1, 'avatar_url' => 1]
+            ]);
+            $itemTags = $db->findMany('person_tags', ['media_id' => intval($item['id'])], ['projection' => ['name' => 1]]);
+            $tagNames = array_map(function ($t) {
+                return (string) ($t['name'] ?? '');
+            }, $itemTags);
+
+            if (!self::matchesSearch($item, $creator, $tagNames, $query, $id, $name, $location, $person)) {
+                continue;
+            }
+
+            $email = (string) ($creator['email'] ?? '');
+            $displayName = trim((string) ($creator['display_name'] ?? ''));
+            $item['creator_email'] = $email;
+            $item['creatorName'] = $displayName !== '' ? $displayName : explode('@', $email)[0];
+            $item['creatorAvatarUrl'] = $creator['avatar_url'] ?? null;
+
+            $ratingDocs = $db->findMany('ratings', ['media_id' => intval($item['id'])]);
+            $ratingCount = count($ratingDocs);
+            $ratingSum = 0;
+            foreach ($ratingDocs as $ratingDoc) {
+                $ratingSum += intval($ratingDoc['value'] ?? 0);
+            }
+
+            $item['ratings'] = [
+                'count' => $ratingCount,
+                'average' => $ratingCount > 0 ? round($ratingSum / $ratingCount, 2) : 0
+            ];
+            $item['commentsCount'] = $db->count('comments', ['media_id' => intval($item['id'])]);
+            $item['likesCount'] = $db->count('likes', ['media_id' => intval($item['id'])]);
+            $item['tags'] = $itemTags;
+            $filtered[] = $item;
         }
 
-        if (!empty($id)) {
-            $conditions[] = 'm.id = ?';
-            $params[] = intval($id);
-        }
-
-        if (!empty($name)) {
-            $conditions[] = '(u.display_name LIKE ? OR SUBSTRING_INDEX(u.email, "@", 1) LIKE ?)';
-            $params[] = "%{$name}%";
-            $params[] = "%{$name}%";
-        }
-
-        if (!empty($location)) {
-            $conditions[] = 'location LIKE ?';
-            $params[] = "%{$location}%";
-        }
-
-        if (!empty($person)) {
-            // Search for person tags
-                $sql = 'SELECT m.*, u.email as creator_email,
-                    COALESCE(NULLIF(u.display_name, ""), SUBSTRING_INDEX(u.email, "@", 1)) as creatorName,
-                    u.avatar_url as creatorAvatarUrl
-                    FROM media m 
-                    JOIN users u ON m.creator_id = u.id
-                    JOIN person_tags pt ON m.id = pt.media_id
-                    WHERE pt.name LIKE ? ';
-            
-            if (!empty($query)) {
-                $sql .= 'AND (MATCH(m.title, m.caption) AGAINST(? IN BOOLEAN MODE) OR m.title LIKE ? OR m.caption LIKE ?)';
-            }
-
-            if (!empty($id)) {
-                $sql .= ' AND m.id = ?';
-            }
-
-            if (!empty($name)) {
-                $sql .= ' AND (u.display_name LIKE ? OR SUBSTRING_INDEX(u.email, "@", 1) LIKE ?)';
-            }
-            
-            if (!empty($location)) {
-                $sql .= ' AND m.location LIKE ?';
-            }
-
-            $whereParams = ["%{$person}%"];
-            
-            if (!empty($query)) {
-                $whereParams[] = $query;
-                $whereParams[] = "%{$query}%";
-                $whereParams[] = "%{$query}%";
-            }
-
-            if (!empty($id)) {
-                $whereParams[] = intval($id);
-            }
-
-            if (!empty($name)) {
-                $whereParams[] = "%{$name}%";
-                $whereParams[] = "%{$name}%";
-            }
-            
-            if (!empty($location)) {
-                $whereParams[] = "%{$location}%";
-            }
-
-            // Count total
-            $countSql = 'SELECT COUNT(DISTINCT m.id) as count FROM media m 
-                         JOIN person_tags pt ON m.id = pt.media_id
-                         JOIN users u ON m.creator_id = u.id
-                         WHERE pt.name LIKE ? ';
-            
-            if (!empty($query)) {
-                $countSql .= 'AND (MATCH(m.title, m.caption) AGAINST(? IN BOOLEAN MODE) OR m.title LIKE ? OR m.caption LIKE ?)';
-            }
-
-            if (!empty($id)) {
-                $countSql .= ' AND m.id = ?';
-            }
-
-            if (!empty($name)) {
-                $countSql .= ' AND (u.display_name LIKE ? OR SUBSTRING_INDEX(u.email, "@", 1) LIKE ?)';
-            }
-            
-            if (!empty($location)) {
-                $countSql .= ' AND m.location LIKE ?';
-            }
-
-            $total = $db->fetch($countSql, $whereParams)['count'];
-
-            $sql .= ' GROUP BY m.id ORDER BY m.created_at DESC LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset);
-
-            $mediaList = $db->fetchAll($sql, $whereParams);
-        } else {
-            $whereClause = implode(' AND ', $conditions);
-
-            $total = $db->fetch(
-                'SELECT COUNT(DISTINCT m.id) as count FROM media m 
-                 JOIN users u ON m.creator_id = u.id
-                 WHERE ' . $whereClause,
-                $params
-            )['count'];
-
-            $mediaList = $db->fetchAll(
-                'SELECT m.*, u.email as creator_email,
-                 COALESCE(NULLIF(u.display_name, ""), SUBSTRING_INDEX(u.email, "@", 1)) as creatorName,
-                 u.avatar_url as creatorAvatarUrl FROM media m 
-                 JOIN users u ON m.creator_id = u.id
-                 WHERE ' . $whereClause . '
-                 ORDER BY m.created_at DESC LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset),
-                $params
-            );
-        }
-
-        // Fetch additional data
-        foreach ($mediaList as &$item) {
-            $item['ratings'] = $db->fetch(
-                'SELECT COUNT(*) as count, AVG(value) as average FROM ratings WHERE media_id = ?',
-                [$item['id']]
-            );
-
-            $item['commentsCount'] = $db->fetch(
-                'SELECT COUNT(*) as count FROM comments WHERE media_id = ?',
-                [$item['id']]
-            )['count'];
-
-            $item['likesCount'] = $db->fetch(
-                'SELECT COUNT(*) as count FROM likes WHERE media_id = ?',
-                [$item['id']]
-            )['count'];
-
-            $item['tags'] = $db->fetchAll(
-                'SELECT name FROM person_tags WHERE media_id = ?',
-                [$item['id']]
-            );
-        }
+        $total = count($filtered);
+        $mediaList = array_slice($filtered, intval($offset), intval($perPage));
 
         // Cache results
         $cache->set($cacheKey, [
@@ -191,5 +88,51 @@ class SearchController
         ], CACHE_TTL_SEARCH);
 
         return Response::send(Response::paginated($mediaList, $total, $page, $perPage));
+    }
+
+    private static function matchesSearch($item, $creator, $tagNames, $query, $id, $name, $location, $person)
+    {
+        if ($query !== '') {
+            $title = (string) ($item['title'] ?? '');
+            $caption = (string) ($item['caption'] ?? '');
+            if (stripos($title, $query) === false && stripos($caption, $query) === false) {
+                return false;
+            }
+        }
+
+        if ($id !== '' && intval($item['id'] ?? 0) !== intval($id)) {
+            return false;
+        }
+
+        if ($name !== '') {
+            $displayName = (string) ($creator['display_name'] ?? '');
+            $email = (string) ($creator['email'] ?? '');
+            $emailPrefix = explode('@', $email)[0];
+            if (stripos($displayName, $name) === false && stripos($emailPrefix, $name) === false) {
+                return false;
+            }
+        }
+
+        if ($location !== '') {
+            $mediaLocation = (string) ($item['location'] ?? '');
+            if (stripos($mediaLocation, $location) === false) {
+                return false;
+            }
+        }
+
+        if ($person !== '') {
+            $matched = false;
+            foreach ($tagNames as $tagName) {
+                if (stripos($tagName, $person) !== false) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if (!$matched) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

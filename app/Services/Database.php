@@ -13,14 +13,20 @@ class Database
     private function __construct()
     {
         try {
+            $host = getenv('LEGACY_MYSQL_HOST') ?: (getenv('DB_HOST') ?: '127.0.0.1');
+            $port = intval(getenv('LEGACY_MYSQL_PORT') ?: (getenv('DB_PORT') ?: '3306'));
+            $name = getenv('LEGACY_MYSQL_DB') ?: (getenv('DB_NAME') ?: 'insta_app');
+            $user = getenv('LEGACY_MYSQL_USER') ?: (getenv('DB_USER') ?: 'root');
+            $pass = getenv('LEGACY_MYSQL_PASS') ?: (getenv('DB_PASS') ?: '');
+
             $dsn = sprintf(
                 'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
-                DB_HOST,
-                DB_PORT,
-                DB_NAME
+                $host,
+                $port,
+                $name
             );
 
-            $this->connection = new PDO($dsn, DB_USER, DB_PASS, [
+            $this->connection = new PDO($dsn, $user, $pass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"

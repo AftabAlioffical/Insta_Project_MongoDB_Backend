@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Services\Database;
+use App\Services\MongoDatabase;
 use App\Services\Response;
 use App\Services\CacheService;
 use App\Middleware\AuthMiddleware;
@@ -23,7 +23,7 @@ class MediaController
         }
 
         // User is CREATOR or ADMIN - allowed to upload.
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         if (!isset($_FILES['file'])) {
             return Response::send(Response::error('No file uploaded', 400));
@@ -70,7 +70,7 @@ class MediaController
             $type = in_array(strtolower($ext), ['mp4', 'webm']) ? 'video' : 'image';
 
             // Insert media record
-            $mediaId = $db->insert('media', [
+            $mediaId = $db->insertOne('media', [
                 'creator_id' => $auth['user']['userId'],
                 'type' => $type,
                 'url' => '/assets/uploads/' . $filename,
@@ -82,7 +82,7 @@ class MediaController
 
             // Insert person tags
             foreach (array_filter(array_map('trim', $personTags)) as $tag) {
-                $db->insert('person_tags', [
+                $db->insertOne('person_tags', [
                     'media_id' => $mediaId,
                     'name' => $tag
                 ]);
@@ -140,30 +140,23 @@ class MediaController
             }
         }
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         if ($creatorId) {
-            $total = $db->fetch('SELECT COUNT(*) as count FROM media WHERE creator_id = ?', [$creatorId])['count'];
-            $mediaList = $db->fetchAll(
-                'SELECT m.*, u.email as creator_email, u.email as creatorEmail,
-                        COALESCE(NULLIF(u.display_name, ""), SUBSTRING_INDEX(u.email, "@", 1)) as creatorName,
-                        u.avatar_url as creator_avatar_url, u.avatar_url as creatorAvatarUrl
-                 FROM media m 
-                 JOIN users u ON m.creator_id = u.id 
-                 WHERE m.creator_id = ?
-                 ORDER BY m.created_at DESC LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset),
-                [$creatorId]
-            );
+            $filter = ['creator_id' => $creatorId];
+            $total = $db->count('media', $filter);
+            $mediaList = $db->findMany('media', $filter, [
+                'sort' => ['id' => -1],
+                'limit' => intval($perPage),
+                'skip' => intval($offset)
+            ]);
         } else {
-            $total = $db->fetch('SELECT COUNT(*) as count FROM media')['count'];
-            $mediaList = $db->fetchAll(
-                'SELECT m.*, u.email as creator_email, u.email as creatorEmail,
-                        COALESCE(NULLIF(u.display_name, ""), SUBSTRING_INDEX(u.email, "@", 1)) as creatorName,
-                        u.avatar_url as creator_avatar_url, u.avatar_url as creatorAvatarUrl
-                 FROM media m 
-                 JOIN users u ON m.creator_id = u.id 
-                 ORDER BY m.created_at DESC LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset)
-            );
+            $total = $db->count('media', []);
+            $mediaList = $db->findMany('media', [], [
+                'sort' => ['id' => -1],
+                'limit' => intval($perPage),
+                'skip' => intval($offset)
+            ]);
         }
 
         foreach ($mediaList as &$item) {
@@ -194,7 +187,7 @@ class MediaController
             return Response::send(Response::success($cached));
         }
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
         $media = self::fetchMediaRecord($db, $mediaId);
 
@@ -223,16 +216,19 @@ class MediaController
         }
 
         $mediaId = intval($mediaId);
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
-        $media = $db->fetch('SELECT creator_id FROM media WHERE id = ?', [$mediaId]);
+        $media = $db->findOne('media', ['id' => $mediaId], ['projection' => ['creator_id' => 1]]);
 
         if (!$media) {
             return Response::send(Response::error('Media not found', 404));
         }
 
-        $currentUser = $db->fetch('SELECT role FROM users WHERE id = ?', [$auth['user']['userId']]);
-        $currentRole = strtoupper((string) ($currentUser['role'] ?? ($auth['user']['role'] ?? '')));
+        $currentRole = strtoupper((string) ($auth['user']['role'] ?? ''));
+        if ($currentRole === '') {
+            $currentUser = $db->findOne('users', ['id' => intval($auth['user']['userId'])], ['projection' => ['role' => 1]]);
+            $currentRole = strtoupper((string) ($currentUser['role'] ?? ''));
+        }
 
         // Check ownership (creators can delete their own, admins can delete any)
         if ($currentRole !== 'ADMIN' && $media['creator_id'] != $auth['user']['userId']) {
@@ -240,7 +236,11 @@ class MediaController
         }
 
         try {
-            $db->delete('media', 'id = ?', [$mediaId]);
+            $db->deleteOne('media', ['id' => $mediaId]);
+            $db->deleteMany('person_tags', ['media_id' => $mediaId]);
+            $db->deleteMany('comments', ['media_id' => $mediaId]);
+            $db->deleteMany('likes', ['media_id' => $mediaId]);
+            $db->deleteMany('ratings', ['media_id' => $mediaId]);
             self::clearMediaCaches($mediaId);
 
             return Response::send(Response::success(null, 'Media deleted successfully'));
@@ -309,15 +309,13 @@ class MediaController
 
     private static function fetchMediaRecord($db, $mediaId)
     {
-        return $db->fetch(
-            'SELECT m.*, u.email as creator_email, u.email as creatorEmail,
-                    COALESCE(NULLIF(u.display_name, ""), SUBSTRING_INDEX(u.email, "@", 1)) as creatorName,
-                    u.avatar_url as creator_avatar_url, u.avatar_url as creatorAvatarUrl
-             FROM media m
-             JOIN users u ON m.creator_id = u.id
-             WHERE m.id = ?',
-            [$mediaId]
-        );
+        $item = $db->findOne('media', ['id' => intval($mediaId)]);
+        if (!$item) {
+            return null;
+        }
+
+        self::attachCreator($db, $item);
+        return $item;
     }
 
     private static function enrichMediaItem($db, &$item)
@@ -326,25 +324,37 @@ class MediaController
             return;
         }
 
-        $item['ratings'] = $db->fetch(
-            'SELECT COUNT(*) as count, AVG(value) as average FROM ratings WHERE media_id = ?',
-            [$item['id']]
-        );
+        self::attachCreator($db, $item);
 
-        $item['commentsCount'] = intval($db->fetch(
-            'SELECT COUNT(*) as count FROM comments WHERE media_id = ?',
-            [$item['id']]
-        )['count']);
+        $ratingDocs = $db->findMany('ratings', ['media_id' => intval($item['id'])]);
+        $ratingCount = count($ratingDocs);
+        $ratingSum = 0;
+        foreach ($ratingDocs as $ratingDoc) {
+            $ratingSum += intval($ratingDoc['value'] ?? 0);
+        }
+        $item['ratings'] = [
+            'count' => $ratingCount,
+            'average' => $ratingCount > 0 ? round($ratingSum / $ratingCount, 2) : 0
+        ];
 
-        $item['likesCount'] = intval($db->fetch(
-            'SELECT COUNT(*) as count FROM likes WHERE media_id = ?',
-            [$item['id']]
-        )['count']);
+        $item['commentsCount'] = $db->count('comments', ['media_id' => intval($item['id'])]);
+        $item['likesCount'] = $db->count('likes', ['media_id' => intval($item['id'])]);
+        $item['tags'] = $db->findMany('person_tags', ['media_id' => intval($item['id'])], ['projection' => ['name' => 1]]);
+    }
 
-        $item['tags'] = $db->fetchAll(
-            'SELECT name FROM person_tags WHERE media_id = ?',
-            [$item['id']]
-        );
+    private static function attachCreator($db, &$item)
+    {
+        $creator = $db->findOne('users', ['id' => intval($item['creator_id'] ?? 0)], [
+            'projection' => ['email' => 1, 'display_name' => 1, 'avatar_url' => 1]
+        ]);
+
+        $email = (string) ($creator['email'] ?? '');
+        $displayName = trim((string) ($creator['display_name'] ?? ''));
+        $item['creator_email'] = $email;
+        $item['creatorEmail'] = $email;
+        $item['creatorName'] = $displayName !== '' ? $displayName : explode('@', $email)[0];
+        $item['creator_avatar_url'] = $creator['avatar_url'] ?? null;
+        $item['creatorAvatarUrl'] = $creator['avatar_url'] ?? null;
     }
 
     private static function clearMediaCaches($mediaId = null)

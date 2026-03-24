@@ -1,11 +1,8 @@
 <?php
 
-// Database configuration
-define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
-define('DB_USER', getenv('DB_USER') ?: 'root');
-define('DB_PASS', getenv('DB_PASS') ?: '');
-define('DB_NAME', getenv('DB_NAME') ?: 'insta_app');
-define('DB_PORT', getenv('DB_PORT') ?: 3306);
+// MongoDB configuration
+define('MONGO_URI', getenv('MONGO_URI') ?: 'mongodb://127.0.0.1:27017');
+define('MONGO_DB_NAME', getenv('MONGO_DB_NAME') ?: 'insta_app');
 
 // JWT Configuration
 define('JWT_SECRET', getenv('JWT_SECRET') ?: 'change_me_in_production_secret_key_1234567890');
@@ -65,12 +62,9 @@ define('ITEMS_PER_PAGE', 20);
 define('DEFAULT_PAGE', 1);
 
 return [
-    'db' => [
-        'host' => DB_HOST,
-        'user' => DB_USER,
-        'pass' => DB_PASS,
-        'name' => DB_NAME,
-        'port' => DB_PORT
+    'mongo' => [
+        'uri' => MONGO_URI,
+        'db' => MONGO_DB_NAME
     ],
     'jwt' => [
         'secret' => JWT_SECRET,

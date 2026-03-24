@@ -3,7 +3,7 @@
 namespace App\Middleware;
 
 use App\Services\JWTService;
-use App\Services\Database;
+use App\Services\MongoDatabase;
 
 class AuthMiddleware
 {
@@ -40,14 +40,14 @@ class AuthMiddleware
         }
 
         // Resolve role from database so role updates apply immediately.
-        $db = Database::getInstance();
-        $user = $db->fetch('SELECT role FROM users WHERE id = ?', [$auth['user']['userId']]);
+        $db = MongoDatabase::getInstance();
+        $user = $db->findOne('users', ['id' => intval($auth['user']['userId'])], ['projection' => ['role' => 1]]);
 
         if (!$user) {
             return ['authenticated' => false, 'error' => 'User not found'];
         }
 
-        $userRole = strtoupper($user['role'] ?? '');
+        $userRole = strtoupper((string) ($user['role'] ?? ''));
         $auth['user']['role'] = $userRole;
 
         // Admin has access to everything

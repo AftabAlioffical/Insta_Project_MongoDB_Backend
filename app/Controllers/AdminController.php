@@ -4,7 +4,7 @@ namespace App\Controllers;
 
 use App\Middleware\AuthMiddleware;
 use App\Services\CacheService;
-use App\Services\Database;
+use App\Services\MongoDatabase;
 use App\Services\Response;
 
 class AdminController
@@ -15,7 +15,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -25,7 +25,7 @@ class AdminController
             return Response::send(Response::error('Email, password, and role required', 400));
         }
 
-        $email = trim($input['email']);
+        $email = trim((string) $input['email']);
         $password = (string) $input['password'];
         $role = strtoupper((string) $input['role']);
 
@@ -41,21 +41,23 @@ class AdminController
             return Response::send(Response::error('Password must be at least 6 characters', 400));
         }
 
-        $db = Database::getInstance();
-        $existing = $db->fetch('SELECT id FROM users WHERE email = ?', [$email]);
+        $db = MongoDatabase::getInstance();
+        $existing = $db->findOne('users', ['email' => $email], ['projection' => ['id' => 1]]);
         if ($existing) {
             return Response::send(Response::error('Email already exists', 409));
         }
 
         try {
-            $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 10]);
-            $userId = $db->insert('users', [
+            $userId = $db->insertOne('users', [
                 'email' => $email,
-                'password_hash' => $passwordHash,
+                'password_hash' => password_hash($password, PASSWORD_BCRYPT, ['cost' => 10]),
                 'role' => $role
             ]);
 
-            $user = $db->fetch('SELECT id, email, role, created_at, updated_at FROM users WHERE id = ?', [$userId]);
+            $user = $db->findOne('users', ['id' => intval($userId)], [
+                'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'created_at' => 1, 'updated_at' => 1]
+            ]);
+
             return Response::send(Response::success($user, 'User created successfully', 201));
         } catch (\Exception $e) {
             error_log('Admin createUser error: ' . $e->getMessage());
@@ -69,49 +71,55 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
 
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $perPage = isset($_GET['limit']) ? min(200, max(1, intval($_GET['limit']))) : ITEMS_PER_PAGE;
-        $offset = ($page - 1) * $perPage;
         $query = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
         $roleFilter = isset($_GET['role']) ? strtoupper(trim((string) $_GET['role'])) : '';
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
+        $rows = $db->findMany('users', [], [
+            'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'display_name' => 1, 'avatar_url' => 1, 'created_at' => 1, 'updated_at' => 1],
+            'sort' => ['id' => -1]
+        ]);
 
-        $conditions = [];
-        $params = [];
+        $filtered = [];
+        foreach ($rows as $user) {
+            if ($query !== '') {
+                $haystack = strtolower(
+                    (string) ($user['email'] ?? '') . ' ' .
+                    (string) ($user['role'] ?? '') . ' ' .
+                    (string) ($user['display_name'] ?? '')
+                );
+                if (strpos($haystack, strtolower($query)) === false) {
+                    continue;
+                }
+            }
 
-        if ($query !== '') {
-            $needle = '%' . $query . '%';
-            $conditions[] = '(email LIKE ? OR role LIKE ? OR display_name LIKE ?)';
-            $params[] = $needle;
-            $params[] = strtoupper($needle);
-            $params[] = $needle;
+            if ($roleFilter !== '' && strtoupper((string) ($user['role'] ?? '')) !== $roleFilter) {
+                continue;
+            }
+
+            $filtered[] = [
+                'id' => intval($user['id'] ?? 0),
+                'email' => $user['email'] ?? '',
+                'role' => $user['role'] ?? 'CONSUMER',
+                'displayName' => $user['display_name'] ?? null,
+                'avatarUrl' => $user['avatar_url'] ?? null,
+                'created_at' => $user['created_at'] ?? null,
+                'updated_at' => $user['updated_at'] ?? null
+            ];
         }
 
-        if ($roleFilter !== '') {
-            $conditions[] = 'role = ?';
-            $params[] = $roleFilter;
-        }
+        $total = count($filtered);
+        $offset = ($page - 1) * $perPage;
+        $items = array_slice($filtered, intval($offset), intval($perPage));
 
-        $where = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
-
-        $total = $db->fetch("SELECT COUNT(*) as count FROM users $where", $params)['count'];
-
-        $users = $db->fetchAll(
-            "SELECT id, email, role, display_name AS displayName, avatar_url AS avatarUrl, created_at, updated_at
-             FROM users
-             $where
-             ORDER BY created_at DESC
-             LIMIT " . intval($perPage) . ' OFFSET ' . intval($offset),
-            $params
-        );
-
-        return Response::send(Response::paginated($users, $total, $page, $perPage));
+        return Response::send(Response::paginated($items, $total, $page, $perPage));
     }
 
     public static function updateUser($userId)
@@ -120,7 +128,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -135,8 +143,8 @@ class AdminController
             return Response::send(Response::error('Invalid payload', 400));
         }
 
-        $db = Database::getInstance();
-        $user = $db->fetch('SELECT id, email, role FROM users WHERE id = ?', [$userId]);
+        $db = MongoDatabase::getInstance();
+        $user = $db->findOne('users', ['id' => $userId], ['projection' => ['id' => 1, 'email' => 1, 'role' => 1]]);
         if (!$user) {
             return Response::send(Response::error('User not found', 404));
         }
@@ -149,8 +157,8 @@ class AdminController
                 return Response::send(Response::error('Invalid email format', 400));
             }
 
-            $existing = $db->fetch('SELECT id FROM users WHERE email = ? AND id <> ?', [$email, $userId]);
-            if ($existing) {
+            $existing = $db->findOne('users', ['email' => $email], ['projection' => ['id' => 1]]);
+            if ($existing && intval($existing['id']) !== $userId) {
                 return Response::send(Response::error('Email already exists', 409));
             }
             $updates['email'] = $email;
@@ -162,9 +170,8 @@ class AdminController
                 return Response::send(Response::error('Invalid role', 400));
             }
 
-            if ($user['role'] === 'ADMIN' && $role !== 'ADMIN') {
-                $adminCount = $db->fetch('SELECT COUNT(*) as count FROM users WHERE role = ?', ['ADMIN'])['count'];
-                if (intval($adminCount) <= 1) {
+            if (($user['role'] ?? '') === 'ADMIN' && $role !== 'ADMIN') {
+                if (self::countUsersByRole('ADMIN') <= 1) {
                     return Response::send(Response::error('Cannot remove the last admin', 400));
                 }
             }
@@ -181,13 +188,17 @@ class AdminController
         }
 
         if (empty($updates)) {
-            $fresh = $db->fetch('SELECT id, email, role, created_at, updated_at FROM users WHERE id = ?', [$userId]);
+            $fresh = $db->findOne('users', ['id' => $userId], [
+                'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'created_at' => 1, 'updated_at' => 1]
+            ]);
             return Response::send(Response::success($fresh, 'No changes applied'));
         }
 
         try {
-            $db->update('users', $updates, 'id = ?', [$userId]);
-            $fresh = $db->fetch('SELECT id, email, role, created_at, updated_at FROM users WHERE id = ?', [$userId]);
+            $db->updateOne('users', ['id' => $userId], $updates);
+            $fresh = $db->findOne('users', ['id' => $userId], [
+                'projection' => ['id' => 1, 'email' => 1, 'role' => 1, 'created_at' => 1, 'updated_at' => 1]
+            ]);
             return Response::send(Response::success($fresh, 'User updated successfully'));
         } catch (\Exception $e) {
             error_log('Admin updateUser error: ' . $e->getMessage());
@@ -201,7 +212,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -215,21 +226,18 @@ class AdminController
             return Response::send(Response::error('Cannot delete your own account', 400));
         }
 
-        $db = Database::getInstance();
-        $user = $db->fetch('SELECT id, role FROM users WHERE id = ?', [$userId]);
+        $db = MongoDatabase::getInstance();
+        $user = $db->findOne('users', ['id' => $userId], ['projection' => ['id' => 1, 'role' => 1]]);
         if (!$user) {
             return Response::send(Response::error('User not found', 404));
         }
 
-        if ($user['role'] === 'ADMIN') {
-            $adminCount = $db->fetch('SELECT COUNT(*) as count FROM users WHERE role = ?', ['ADMIN'])['count'];
-            if (intval($adminCount) <= 1) {
-                return Response::send(Response::error('Cannot delete the last admin', 400));
-            }
+        if (($user['role'] ?? '') === 'ADMIN' && self::countUsersByRole('ADMIN') <= 1) {
+            return Response::send(Response::error('Cannot delete the last admin', 400));
         }
 
         try {
-            $db->delete('users', 'id = ?', [$userId]);
+            $db->deleteOne('users', ['id' => $userId]);
             return Response::send(Response::success(null, 'User deleted successfully'));
         } catch (\Exception $e) {
             error_log('Admin deleteUser error: ' . $e->getMessage());
@@ -243,55 +251,57 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
 
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $perPage = isset($_GET['limit']) ? min(200, max(1, intval($_GET['limit']))) : ITEMS_PER_PAGE;
-        $offset = ($page - 1) * $perPage;
         $query = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
+        $rows = $db->findMany('media', [], ['sort' => ['id' => -1]]);
 
-        if ($query !== '') {
-            $needle = '%' . $query . '%';
-            $total = $db->fetch(
-                'SELECT COUNT(*) as count
-                 FROM media m
-                 JOIN users u ON m.creator_id = u.id
-                 WHERE m.title LIKE ? OR m.caption LIKE ? OR u.email LIKE ?',
-                [$needle, $needle, $needle]
-            )['count'];
+        $posts = [];
+        foreach ($rows as $post) {
+            $creator = $db->findOne('users', ['id' => intval($post['creator_id'] ?? 0)], ['projection' => ['email' => 1]]);
+            $creatorEmail = (string) ($creator['email'] ?? '');
 
-            $posts = $db->fetchAll(
-                'SELECT m.id, m.creator_id, u.email as creator_email, m.type, m.url, m.thumbnail_url,
-                        m.title, m.caption, m.location, m.created_at, m.updated_at,
-                        (SELECT COUNT(*) FROM comments c WHERE c.media_id = m.id) as comments_count,
-                        (SELECT COUNT(*) FROM likes l WHERE l.media_id = m.id) as likes_count
-                 FROM media m
-                 JOIN users u ON m.creator_id = u.id
-                 WHERE m.title LIKE ? OR m.caption LIKE ? OR u.email LIKE ?
-                 ORDER BY m.created_at DESC
-                 LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset),
-                [$needle, $needle, $needle]
-            );
-        } else {
-            $total = $db->fetch('SELECT COUNT(*) as count FROM media')['count'];
-            $posts = $db->fetchAll(
-                'SELECT m.id, m.creator_id, u.email as creator_email, m.type, m.url, m.thumbnail_url,
-                        m.title, m.caption, m.location, m.created_at, m.updated_at,
-                        (SELECT COUNT(*) FROM comments c WHERE c.media_id = m.id) as comments_count,
-                        (SELECT COUNT(*) FROM likes l WHERE l.media_id = m.id) as likes_count
-                 FROM media m
-                 JOIN users u ON m.creator_id = u.id
-                 ORDER BY m.created_at DESC
-                 LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset)
-            );
+            if ($query !== '') {
+                $haystack = strtolower(
+                    (string) ($post['title'] ?? '') . ' ' .
+                    (string) ($post['caption'] ?? '') . ' ' .
+                    $creatorEmail
+                );
+                if (strpos($haystack, strtolower($query)) === false) {
+                    continue;
+                }
+            }
+
+            $postId = intval($post['id'] ?? 0);
+            $posts[] = [
+                'id' => $postId,
+                'creator_id' => intval($post['creator_id'] ?? 0),
+                'creator_email' => $creatorEmail,
+                'type' => $post['type'] ?? 'image',
+                'url' => $post['url'] ?? '',
+                'thumbnail_url' => $post['thumbnail_url'] ?? null,
+                'title' => $post['title'] ?? '',
+                'caption' => $post['caption'] ?? '',
+                'location' => $post['location'] ?? '',
+                'created_at' => $post['created_at'] ?? null,
+                'updated_at' => $post['updated_at'] ?? null,
+                'comments_count' => $db->count('comments', ['media_id' => $postId]),
+                'likes_count' => $db->count('likes', ['media_id' => $postId])
+            ];
         }
 
-        return Response::send(Response::paginated($posts, $total, $page, $perPage));
+        $total = count($posts);
+        $offset = ($page - 1) * $perPage;
+        $items = array_slice($posts, intval($offset), intval($perPage));
+
+        return Response::send(Response::paginated($items, $total, $page, $perPage));
     }
 
     public static function updatePost($postId)
@@ -300,7 +310,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -315,8 +325,8 @@ class AdminController
             return Response::send(Response::error('Invalid payload', 400));
         }
 
-        $db = Database::getInstance();
-        $existing = $db->fetch('SELECT id FROM media WHERE id = ?', [$postId]);
+        $db = MongoDatabase::getInstance();
+        $existing = $db->findOne('media', ['id' => $postId], ['projection' => ['id' => 1]]);
         if (!$existing) {
             return Response::send(Response::error('Post not found', 404));
         }
@@ -344,15 +354,15 @@ class AdminController
         }
 
         try {
-            $db->update('media', $updates, 'id = ?', [$postId]);
+            $db->updateOne('media', ['id' => $postId], $updates);
             CacheService::getInstance()->delete('media_' . $postId);
+            CacheService::getInstance()->delete('media_v2_' . $postId);
 
-            $post = $db->fetch(
-                'SELECT m.id, m.creator_id, u.email as creator_email, m.type, m.url, m.thumbnail_url,
-                        m.title, m.caption, m.location, m.created_at, m.updated_at
-                 FROM media m JOIN users u ON m.creator_id = u.id WHERE m.id = ?',
-                [$postId]
-            );
+            $post = $db->findOne('media', ['id' => $postId]);
+            if ($post) {
+                $creator = $db->findOne('users', ['id' => intval($post['creator_id'] ?? 0)], ['projection' => ['email' => 1]]);
+                $post['creator_email'] = $creator['email'] ?? '';
+            }
 
             return Response::send(Response::success($post, 'Post updated successfully'));
         } catch (\Exception $e) {
@@ -367,7 +377,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -377,15 +387,20 @@ class AdminController
             return Response::send(Response::error('Invalid post id', 400));
         }
 
-        $db = Database::getInstance();
-        $existing = $db->fetch('SELECT id FROM media WHERE id = ?', [$postId]);
+        $db = MongoDatabase::getInstance();
+        $existing = $db->findOne('media', ['id' => $postId], ['projection' => ['id' => 1]]);
         if (!$existing) {
             return Response::send(Response::error('Post not found', 404));
         }
 
         try {
-            $db->delete('media', 'id = ?', [$postId]);
+            $db->deleteOne('media', ['id' => $postId]);
+            $db->deleteMany('person_tags', ['media_id' => $postId]);
+            $db->deleteMany('comments', ['media_id' => $postId]);
+            $db->deleteMany('likes', ['media_id' => $postId]);
+            $db->deleteMany('ratings', ['media_id' => $postId]);
             CacheService::getInstance()->delete('media_' . $postId);
+            CacheService::getInstance()->delete('media_v2_' . $postId);
             return Response::send(Response::success(null, 'Post deleted successfully'));
         } catch (\Exception $e) {
             error_log('Admin deletePost error: ' . $e->getMessage());
@@ -399,56 +414,54 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
 
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $perPage = isset($_GET['limit']) ? min(200, max(1, intval($_GET['limit']))) : ITEMS_PER_PAGE;
-        $offset = ($page - 1) * $perPage;
         $query = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
+        $rows = $db->findMany('comments', [], ['sort' => ['id' => -1]]);
 
-        if ($query !== '') {
-            $needle = '%' . $query . '%';
-            $total = $db->fetch(
-                'SELECT COUNT(*) as count
-                 FROM comments c
-                 JOIN users u ON c.user_id = u.id
-                 JOIN media m ON c.media_id = m.id
-                 WHERE c.text LIKE ? OR u.email LIKE ? OR m.title LIKE ?',
-                [$needle, $needle, $needle]
-            )['count'];
+        $comments = [];
+        foreach ($rows as $comment) {
+            $user = $db->findOne('users', ['id' => intval($comment['user_id'] ?? 0)], ['projection' => ['email' => 1]]);
+            $media = $db->findOne('media', ['id' => intval($comment['media_id'] ?? 0)], ['projection' => ['title' => 1]]);
 
-            $comments = $db->fetchAll(
-                'SELECT c.id, c.media_id, c.user_id, c.reply_to_id, c.text, c.created_at, c.updated_at,
-                        u.email as user_email,
-                        COALESCE(m.title, "Untitled") as media_title
-                 FROM comments c
-                 JOIN users u ON c.user_id = u.id
-                 JOIN media m ON c.media_id = m.id
-                 WHERE c.text LIKE ? OR u.email LIKE ? OR m.title LIKE ?
-                 ORDER BY c.created_at DESC
-                 LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset),
-                [$needle, $needle, $needle]
-            );
-        } else {
-            $total = $db->fetch('SELECT COUNT(*) as count FROM comments')['count'];
-            $comments = $db->fetchAll(
-                'SELECT c.id, c.media_id, c.user_id, c.reply_to_id, c.text, c.created_at, c.updated_at,
-                        u.email as user_email,
-                        COALESCE(m.title, "Untitled") as media_title
-                 FROM comments c
-                 JOIN users u ON c.user_id = u.id
-                 JOIN media m ON c.media_id = m.id
-                 ORDER BY c.created_at DESC
-                 LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset)
-            );
+            $userEmail = (string) ($user['email'] ?? '');
+            $mediaTitle = (string) ($media['title'] ?? 'Untitled');
+            if ($mediaTitle === '') {
+                $mediaTitle = 'Untitled';
+            }
+
+            if ($query !== '') {
+                $haystack = strtolower((string) ($comment['text'] ?? '') . ' ' . $userEmail . ' ' . $mediaTitle);
+                if (strpos($haystack, strtolower($query)) === false) {
+                    continue;
+                }
+            }
+
+            $comments[] = [
+                'id' => intval($comment['id'] ?? 0),
+                'media_id' => intval($comment['media_id'] ?? 0),
+                'user_id' => intval($comment['user_id'] ?? 0),
+                'reply_to_id' => isset($comment['reply_to_id']) ? intval($comment['reply_to_id']) : null,
+                'text' => $comment['text'] ?? '',
+                'created_at' => $comment['created_at'] ?? null,
+                'updated_at' => $comment['updated_at'] ?? null,
+                'user_email' => $userEmail,
+                'media_title' => $mediaTitle
+            ];
         }
 
-        return Response::send(Response::paginated($comments, $total, $page, $perPage));
+        $total = count($comments);
+        $offset = ($page - 1) * $perPage;
+        $items = array_slice($comments, intval($offset), intval($perPage));
+
+        return Response::send(Response::paginated($items, $total, $page, $perPage));
     }
 
     public static function createComment()
@@ -457,7 +470,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -481,34 +494,27 @@ class AdminController
             return Response::send(Response::error('Comment too long', 400));
         }
 
-        $db = Database::getInstance();
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
-        if (!$media) {
+        $db = MongoDatabase::getInstance();
+        if (!$db->findOne('media', ['id' => $mediaId], ['projection' => ['id' => 1]])) {
             return Response::send(Response::error('Media not found', 404));
         }
-
-        $user = $db->fetch('SELECT id FROM users WHERE id = ?', [$userId]);
-        if (!$user) {
+        if (!$db->findOne('users', ['id' => $userId], ['projection' => ['id' => 1]])) {
             return Response::send(Response::error('User not found', 404));
         }
 
         try {
-            $commentId = $db->insert('comments', [
+            $commentId = $db->insertOne('comments', [
                 'media_id' => $mediaId,
                 'user_id' => $userId,
                 'text' => $text
             ]);
 
-            $comment = $db->fetch(
-                'SELECT c.id, c.media_id, c.user_id, c.reply_to_id, c.text, c.created_at, c.updated_at,
-                        u.email as user_email,
-                        COALESCE(m.title, "Untitled") as media_title
-                 FROM comments c
-                 JOIN users u ON c.user_id = u.id
-                 JOIN media m ON c.media_id = m.id
-                 WHERE c.id = ?',
-                [$commentId]
-            );
+            $comment = $db->findOne('comments', ['id' => intval($commentId)]);
+            $user = $db->findOne('users', ['id' => $userId], ['projection' => ['email' => 1]]);
+            $media = $db->findOne('media', ['id' => $mediaId], ['projection' => ['title' => 1]]);
+
+            $comment['user_email'] = $user['email'] ?? '';
+            $comment['media_title'] = $media['title'] ?? 'Untitled';
 
             return Response::send(Response::success($comment, 'Comment created successfully', 201));
         } catch (\Exception $e) {
@@ -523,7 +529,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -543,25 +549,21 @@ class AdminController
             return Response::send(Response::error('Comment too long', 400));
         }
 
-        $db = Database::getInstance();
-        $existing = $db->fetch('SELECT id FROM comments WHERE id = ?', [$commentId]);
+        $db = MongoDatabase::getInstance();
+        $existing = $db->findOne('comments', ['id' => $commentId], ['projection' => ['id' => 1]]);
         if (!$existing) {
             return Response::send(Response::error('Comment not found', 404));
         }
 
         try {
-            $db->update('comments', ['text' => $text], 'id = ?', [$commentId]);
+            $db->updateOne('comments', ['id' => $commentId], ['text' => $text]);
 
-            $comment = $db->fetch(
-                'SELECT c.id, c.media_id, c.user_id, c.reply_to_id, c.text, c.created_at, c.updated_at,
-                        u.email as user_email,
-                        COALESCE(m.title, "Untitled") as media_title
-                 FROM comments c
-                 JOIN users u ON c.user_id = u.id
-                 JOIN media m ON c.media_id = m.id
-                 WHERE c.id = ?',
-                [$commentId]
-            );
+            $comment = $db->findOne('comments', ['id' => $commentId]);
+            $user = $db->findOne('users', ['id' => intval($comment['user_id'] ?? 0)], ['projection' => ['email' => 1]]);
+            $media = $db->findOne('media', ['id' => intval($comment['media_id'] ?? 0)], ['projection' => ['title' => 1]]);
+
+            $comment['user_email'] = $user['email'] ?? '';
+            $comment['media_title'] = $media['title'] ?? 'Untitled';
 
             return Response::send(Response::success($comment, 'Comment updated successfully'));
         } catch (\Exception $e) {
@@ -576,7 +578,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -586,14 +588,14 @@ class AdminController
             return Response::send(Response::error('Invalid comment id', 400));
         }
 
-        $db = Database::getInstance();
-        $existing = $db->fetch('SELECT id FROM comments WHERE id = ?', [$commentId]);
+        $db = MongoDatabase::getInstance();
+        $existing = $db->findOne('comments', ['id' => $commentId], ['projection' => ['id' => 1]]);
         if (!$existing) {
             return Response::send(Response::error('Comment not found', 404));
         }
 
         try {
-            $db->delete('comments', 'id = ?', [$commentId]);
+            $db->deleteOne('comments', ['id' => $commentId]);
             return Response::send(Response::success(null, 'Comment deleted successfully'));
         } catch (\Exception $e) {
             error_log('Admin deleteComment error: ' . $e->getMessage());
@@ -607,56 +609,51 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
 
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $perPage = isset($_GET['limit']) ? min(200, max(1, intval($_GET['limit']))) : ITEMS_PER_PAGE;
-        $offset = ($page - 1) * $perPage;
         $query = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
+        $rows = $db->findMany('likes', [], ['sort' => ['id' => -1]]);
 
-        if ($query !== '') {
-            $needle = '%' . $query . '%';
-            $total = $db->fetch(
-                'SELECT COUNT(*) as count
-                 FROM likes l
-                 JOIN users u ON l.user_id = u.id
-                 JOIN media m ON l.media_id = m.id
-                 WHERE u.email LIKE ? OR m.title LIKE ?',
-                [$needle, $needle]
-            )['count'];
+        $likes = [];
+        foreach ($rows as $like) {
+            $user = $db->findOne('users', ['id' => intval($like['user_id'] ?? 0)], ['projection' => ['email' => 1]]);
+            $media = $db->findOne('media', ['id' => intval($like['media_id'] ?? 0)], ['projection' => ['title' => 1]]);
 
-            $likes = $db->fetchAll(
-                'SELECT l.id, l.media_id, l.user_id, l.created_at,
-                        u.email as user_email,
-                        COALESCE(m.title, "Untitled") as media_title
-                 FROM likes l
-                 JOIN users u ON l.user_id = u.id
-                 JOIN media m ON l.media_id = m.id
-                 WHERE u.email LIKE ? OR m.title LIKE ?
-                 ORDER BY l.created_at DESC
-                 LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset),
-                [$needle, $needle]
-            );
-        } else {
-            $total = $db->fetch('SELECT COUNT(*) as count FROM likes')['count'];
-            $likes = $db->fetchAll(
-                'SELECT l.id, l.media_id, l.user_id, l.created_at,
-                        u.email as user_email,
-                        COALESCE(m.title, "Untitled") as media_title
-                 FROM likes l
-                 JOIN users u ON l.user_id = u.id
-                 JOIN media m ON l.media_id = m.id
-                 ORDER BY l.created_at DESC
-                 LIMIT ' . intval($perPage) . ' OFFSET ' . intval($offset)
-            );
+            $userEmail = (string) ($user['email'] ?? '');
+            $mediaTitle = (string) ($media['title'] ?? 'Untitled');
+            if ($mediaTitle === '') {
+                $mediaTitle = 'Untitled';
+            }
+
+            if ($query !== '') {
+                $haystack = strtolower($userEmail . ' ' . $mediaTitle);
+                if (strpos($haystack, strtolower($query)) === false) {
+                    continue;
+                }
+            }
+
+            $likes[] = [
+                'id' => intval($like['id'] ?? 0),
+                'media_id' => intval($like['media_id'] ?? 0),
+                'user_id' => intval($like['user_id'] ?? 0),
+                'created_at' => $like['created_at'] ?? null,
+                'user_email' => $userEmail,
+                'media_title' => $mediaTitle
+            ];
         }
 
-        return Response::send(Response::paginated($likes, $total, $page, $perPage));
+        $total = count($likes);
+        $offset = ($page - 1) * $perPage;
+        $items = array_slice($likes, intval($offset), intval($perPage));
+
+        return Response::send(Response::paginated($items, $total, $page, $perPage));
     }
 
     public static function createLike()
@@ -665,7 +662,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -681,39 +678,33 @@ class AdminController
             return Response::send(Response::error('Invalid media_id or user_id', 400));
         }
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
-        if (!$media) {
+        if (!$db->findOne('media', ['id' => $mediaId], ['projection' => ['id' => 1]])) {
             return Response::send(Response::error('Media not found', 404));
         }
 
-        $user = $db->fetch('SELECT id FROM users WHERE id = ?', [$userId]);
-        if (!$user) {
+        if (!$db->findOne('users', ['id' => $userId], ['projection' => ['id' => 1]])) {
             return Response::send(Response::error('User not found', 404));
         }
 
-        $existing = $db->fetch('SELECT id FROM likes WHERE media_id = ? AND user_id = ?', [$mediaId, $userId]);
+        $existing = $db->findOne('likes', ['media_id' => $mediaId, 'user_id' => $userId], ['projection' => ['id' => 1]]);
         if ($existing) {
             return Response::send(Response::error('Like already exists for this user and post', 409));
         }
 
         try {
-            $likeId = $db->insert('likes', [
+            $likeId = $db->insertOne('likes', [
                 'media_id' => $mediaId,
                 'user_id' => $userId
             ]);
 
-            $like = $db->fetch(
-                'SELECT l.id, l.media_id, l.user_id, l.created_at,
-                        u.email as user_email,
-                        COALESCE(m.title, "Untitled") as media_title
-                 FROM likes l
-                 JOIN users u ON l.user_id = u.id
-                 JOIN media m ON l.media_id = m.id
-                 WHERE l.id = ?',
-                [$likeId]
-            );
+            $like = $db->findOne('likes', ['id' => intval($likeId)]);
+            $user = $db->findOne('users', ['id' => $userId], ['projection' => ['email' => 1]]);
+            $media = $db->findOne('media', ['id' => $mediaId], ['projection' => ['title' => 1]]);
+
+            $like['user_email'] = $user['email'] ?? '';
+            $like['media_title'] = $media['title'] ?? 'Untitled';
 
             return Response::send(Response::success($like, 'Like created successfully', 201));
         } catch (\Exception $e) {
@@ -728,7 +719,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -738,14 +729,14 @@ class AdminController
             return Response::send(Response::error('Invalid like id', 400));
         }
 
-        $db = Database::getInstance();
-        $existing = $db->fetch('SELECT id FROM likes WHERE id = ?', [$likeId]);
+        $db = MongoDatabase::getInstance();
+        $existing = $db->findOne('likes', ['id' => $likeId], ['projection' => ['id' => 1]]);
         if (!$existing) {
             return Response::send(Response::error('Like not found', 404));
         }
 
         try {
-            $db->delete('likes', 'id = ?', [$likeId]);
+            $db->deleteOne('likes', ['id' => $likeId]);
             return Response::send(Response::success(null, 'Like deleted successfully'));
         } catch (\Exception $e) {
             error_log('Admin deleteLike error: ' . $e->getMessage());
@@ -759,7 +750,7 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
@@ -780,47 +771,38 @@ class AdminController
             return Response::send(Response::error('Invalid media_id or user_id', 400));
         }
 
-        $db = Database::getInstance();
+        $db = MongoDatabase::getInstance();
 
-        $existing = $db->fetch('SELECT id FROM likes WHERE id = ?', [$likeId]);
+        $existing = $db->findOne('likes', ['id' => $likeId], ['projection' => ['id' => 1]]);
         if (!$existing) {
             return Response::send(Response::error('Like not found', 404));
         }
 
-        $media = $db->fetch('SELECT id FROM media WHERE id = ?', [$mediaId]);
-        if (!$media) {
+        if (!$db->findOne('media', ['id' => $mediaId], ['projection' => ['id' => 1]])) {
             return Response::send(Response::error('Media not found', 404));
         }
 
-        $user = $db->fetch('SELECT id FROM users WHERE id = ?', [$userId]);
-        if (!$user) {
+        if (!$db->findOne('users', ['id' => $userId], ['projection' => ['id' => 1]])) {
             return Response::send(Response::error('User not found', 404));
         }
 
-        $duplicate = $db->fetch(
-            'SELECT id FROM likes WHERE media_id = ? AND user_id = ? AND id <> ?',
-            [$mediaId, $userId, $likeId]
-        );
-        if ($duplicate) {
+        $duplicate = $db->findOne('likes', ['media_id' => $mediaId, 'user_id' => $userId], ['projection' => ['id' => 1]]);
+        if ($duplicate && intval($duplicate['id']) !== $likeId) {
             return Response::send(Response::error('Another like already exists for this user and post', 409));
         }
 
         try {
-            $db->update('likes', [
+            $db->updateOne('likes', ['id' => $likeId], [
                 'media_id' => $mediaId,
                 'user_id' => $userId
-            ], 'id = ?', [$likeId]);
+            ]);
 
-            $like = $db->fetch(
-                'SELECT l.id, l.media_id, l.user_id, l.created_at,
-                        u.email as user_email,
-                        COALESCE(m.title, "Untitled") as media_title
-                 FROM likes l
-                 JOIN users u ON l.user_id = u.id
-                 JOIN media m ON l.media_id = m.id
-                 WHERE l.id = ?',
-                [$likeId]
-            );
+            $like = $db->findOne('likes', ['id' => $likeId]);
+            $user = $db->findOne('users', ['id' => $userId], ['projection' => ['email' => 1]]);
+            $media = $db->findOne('media', ['id' => $mediaId], ['projection' => ['title' => 1]]);
+
+            $like['user_email'] = $user['email'] ?? '';
+            $like['media_title'] = $media['title'] ?? 'Untitled';
 
             return Response::send(Response::success($like, 'Like updated successfully'));
         } catch (\Exception $e) {
@@ -835,26 +817,16 @@ class AdminController
             return Response::send(Response::error('Method not allowed', 405));
         }
 
-        $auth = AuthMiddleware::checkRole('ADMIN');
+        $auth = self::requireAdmin();
         if (!$auth['authenticated']) {
             return Response::send(Response::error($auth['error'], 403));
         }
 
-        $db = Database::getInstance();
-        $rows = $db->fetchAll('SELECT role, COUNT(*) as count FROM users GROUP BY role');
-
         $counts = [
-            'ADMIN' => 0,
-            'CREATOR' => 0,
-            'CONSUMER' => 0
+            'ADMIN' => self::countUsersByRole('ADMIN'),
+            'CREATOR' => self::countUsersByRole('CREATOR'),
+            'CONSUMER' => self::countUsersByRole('CONSUMER')
         ];
-
-        foreach ($rows as $row) {
-            $role = strtoupper($row['role']);
-            if (isset($counts[$role])) {
-                $counts[$role] = intval($row['count']);
-            }
-        }
 
         $roles = [
             [
@@ -878,5 +850,15 @@ class AdminController
         ];
 
         return Response::send(Response::success($roles));
+    }
+
+    private static function requireAdmin()
+    {
+        return AuthMiddleware::checkRole('ADMIN');
+    }
+
+    private static function countUsersByRole($role)
+    {
+        return MongoDatabase::getInstance()->count('users', ['role' => strtoupper((string) $role)]);
     }
 }

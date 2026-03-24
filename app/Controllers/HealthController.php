@@ -3,7 +3,7 @@
 namespace App\Controllers;
 
 use App\Services\Response;
-use App\Services\Database;
+use App\Services\MongoDatabase;
 use App\Services\CacheService;
 
 class HealthController
@@ -18,8 +18,8 @@ class HealthController
 
         // Check database
         try {
-            $db = Database::getInstance();
-            $db->fetch('SELECT 1');
+            $db = MongoDatabase::getInstance();
+            $db->ping();
             $health['checks']['database'] = ['status' => 'ok'];
         } catch (\Exception $e) {
             $health['checks']['database'] = ['status' => 'error', 'error' => $e->getMessage()];
@@ -36,8 +36,10 @@ class HealthController
     public static function ready()
     {
         try {
-            $db = Database::getInstance();
-            $db->fetch('SELECT 1');
+            $db = MongoDatabase::getInstance();
+            if (!$db->ping()) {
+                throw new \RuntimeException('MongoDB ping failed');
+            }
 
             $ready = [
                 'ready' => true,
