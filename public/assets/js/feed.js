@@ -1,6 +1,6 @@
 // feed.js - Instagram-like Interactive Feed
 
-import { fetchFeed, addComment, toggleLike, getLikes, rateMedia, request, searchUsers } from './api.js';
+import { fetchFeed, addComment, toggleLike, getLikes, rateMedia, request, searchUsers, fetchPeoplePresent } from './api.js';
 import { logout, requireAuth } from './auth.js';
 
 const likedPosts = new Set();
@@ -197,7 +197,7 @@ function setupGlobalSearch() {
             window.location.href = '/search.html';
             return;
         }
-        window.location.href = `/search.html?name=${encodeURIComponent(value)}`;
+        window.location.href = `/search.html?q=${encodeURIComponent(value)}`;
     });
 
     input.addEventListener('blur', () => {
@@ -210,6 +210,95 @@ function setupGlobalSearch() {
             fetchSuggestions(value);
         }
     });
+}
+
+function formatPresence(minutesAgo) {
+    const value = Number(minutesAgo || 0);
+    if (value <= 1) {
+        return 'Just now';
+    }
+    if (value < 60) {
+        return `${value}m ago`;
+    }
+
+    const hours = Math.floor(value / 60);
+    if (hours < 24) {
+        return `${hours}h ago`;
+    }
+
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+}
+
+function ensurePeoplePresentContainer() {
+    let panel = document.getElementById('peoplePresentPanel');
+    if (panel) {
+        return panel;
+    }
+
+    panel = document.createElement('aside');
+    panel.id = 'peoplePresentPanel';
+    panel.className = 'people-present-panel';
+    panel.innerHTML = `
+        <div class="people-present-header">
+            <h6>People Present</h6>
+            <small>Recently active</small>
+        </div>
+        <div id="peoplePresentList" class="people-present-list">
+            <div class="people-present-empty">Loading...</div>
+        </div>
+    `;
+
+    document.body.appendChild(panel);
+    return panel;
+}
+
+function renderPeoplePresent(users) {
+    const list = document.getElementById('peoplePresentList');
+    if (!list) {
+        return;
+    }
+
+    if (!Array.isArray(users) || users.length === 0) {
+        list.innerHTML = '<div class="people-present-empty">No active users right now</div>';
+        return;
+    }
+
+    list.innerHTML = users.map((user) => {
+        const displayName = escapeHtml(user.displayName || user.email?.split('@')[0] || 'User');
+        const role = escapeHtml((user.role || '').toUpperCase());
+        const statusClass = user.isActive ? 'online' : 'away';
+        const avatar = user.avatarUrl
+            ? `<img class="people-present-avatar" src="${escapeHtml(user.avatarUrl)}" alt="${displayName}">`
+            : `<div class="people-present-avatar people-present-avatar-fallback">${escapeHtml((displayName.charAt(0) || 'U').toUpperCase())}</div>`;
+
+        return `
+            <a class="people-present-item" href="/user-profile.html?id=${Number(user.id || 0)}">
+                <div class="people-present-avatar-wrap">
+                    ${avatar}
+                    <span class="people-present-dot ${statusClass}"></span>
+                </div>
+                <div class="people-present-meta">
+                    <div class="people-present-name">${displayName}</div>
+                    <div class="people-present-sub">${role} • ${formatPresence(user.minutesAgo)}</div>
+                </div>
+            </a>
+        `;
+    }).join('');
+}
+
+async function loadPeoplePresent() {
+    ensurePeoplePresentContainer();
+
+    try {
+        const res = await fetchPeoplePresent(8, 24);
+        renderPeoplePresent(Array.isArray(res.data) ? res.data : []);
+    } catch (_) {
+        const list = document.getElementById('peoplePresentList');
+        if (list) {
+            list.innerHTML = '<div class="people-present-empty">Unable to load presence right now</div>';
+        }
+    }
 }
 
 async function renderFeed(page = 1) {
@@ -290,7 +379,6 @@ function createPostCard(post) {
                     <small>${escapeHtml(post.location || 'No location')}</small>
                 </div>
             </div>
-            <div class="post-options">•••</div>
         </div>
 
         <!-- Post Image -->
@@ -673,6 +761,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     hydrateNavbar(currentUser);
     setupGlobalSearch();
+    loadPeoplePresent();
     renderFeed(1);
 });
 
@@ -680,4 +769,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 setInterval(() => {
     const currentPage = document.querySelector('.pagination .page-item.active a')?.textContent || 1;
     renderFeed(parseInt(currentPage));
+    loadPeoplePresent();
 }, 30000);

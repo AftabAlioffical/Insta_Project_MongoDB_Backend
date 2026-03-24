@@ -8,7 +8,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
-        body { background-color: #f5f5f5; }
+        body {
+            background-color: #f5f5f5;
+            overflow-x: hidden;
+        }
         .profile-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -78,6 +81,339 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+
+        .dashboard-shell {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+
+        .section-header {
+            gap: 12px;
+        }
+
+        /* Dashboard-local People Present styles (kept local to avoid stale CSS cache issues) */
+        #peoplePresentPanel {
+            position: fixed;
+            top: 88px;
+            right: 16px;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+            z-index: 1100;
+            overflow: hidden;
+        }
+
+        .presence-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf0f4;
+            background: linear-gradient(90deg, #f8faff 0%, #ffffff 100%);
+        }
+
+        .presence-title {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .presence-title strong {
+            font-size: 14px;
+            color: #111827;
+        }
+
+        .presence-title small {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .presence-title small.is-updated {
+            color: #16a34a;
+        }
+
+        .presence-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .presence-pill {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            background: #eef2ff;
+            color: #4f46e5;
+            border-radius: 999px;
+        }
+
+        .presence-refresh {
+            border: 1px solid #dbe1ea;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 12px;
+            padding: 3px 8px;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .presence-toggle-btn {
+            border: 1px solid #dbe1ea;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1;
+            padding: 5px 9px;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .presence-controls {
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf0f4;
+            display: grid;
+            gap: 8px;
+        }
+
+        .presence-search {
+            width: 100%;
+            border: 1px solid #dbe1ea;
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 13px;
+        }
+
+        .presence-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #4b5563;
+            user-select: none;
+        }
+
+        #peoplePresentList {
+            max-height: 360px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .presence-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #111827;
+            transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .presence-user:hover {
+            background: #f8fafc;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .presence-avatar-wrap {
+            width: 40px;
+            height: 40px;
+            position: relative;
+            flex: 0 0 40px;
+        }
+
+        .presence-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+            border: 1px solid #e5e7eb;
+        }
+
+        .presence-avatar-fallback {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border: 1px solid #e5e7eb;
+        }
+
+        .presence-dot {
+            position: absolute;
+            right: 1px;
+            bottom: 1px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+
+        .presence-dot.online { background: #22c55e; }
+        .presence-dot.away { background: #f59e0b; }
+
+        .presence-meta {
+            min-width: 0;
+        }
+
+        .presence-name {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .presence-sub {
+            font-size: 12px;
+            color: #6b7280;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .presence-empty {
+            font-size: 13px;
+            color: #6b7280;
+            text-align: center;
+            padding: 12px;
+        }
+
+        #peoplePresentPanel.is-collapsed .presence-controls,
+        #peoplePresentPanel.is-collapsed #peoplePresentList {
+            display: none;
+        }
+
+        #peoplePresentPanel.is-collapsed {
+            width: 230px;
+        }
+
+        @media (max-width: 992px) {
+            #peoplePresentPanel {
+                position: static;
+                width: auto;
+                margin: 12px;
+            }
+
+            .profile-header {
+                padding: 32px 0;
+            }
+
+            .posts-grid {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav.instagram-navbar > .container-fluid {
+                padding-left: 14px !important;
+                padding-right: 14px !important;
+            }
+
+            .dashboard-shell {
+                margin-top: 2rem !important;
+                margin-bottom: 2rem !important;
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+
+            .profile-header {
+                padding: 28px 0;
+                margin-bottom: 24px;
+            }
+
+            .profile-avatar {
+                width: 96px;
+                height: 96px;
+            }
+
+            #userName {
+                font-size: 1.75rem;
+            }
+
+            #userEmail,
+            #userBio {
+                font-size: 1rem !important;
+            }
+
+            .stat-card,
+            .settings-section {
+                padding: 16px;
+            }
+
+            .posts-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+
+            .post-item img,
+            .post-item video {
+                height: 170px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: stretch !important;
+            }
+
+            .section-header .btn {
+                width: 100%;
+            }
+
+            #peoplePresentPanel {
+                margin: 0 0 16px;
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .dashboard-shell {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .profile-header .row {
+                text-align: center;
+            }
+
+            .profile-avatar {
+                width: 82px;
+                height: 82px;
+            }
+
+            #userName {
+                font-size: 1.45rem;
+            }
+
+            .posts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .post-item img,
+            .post-item video {
+                height: 220px;
+            }
+
+            .presence-header {
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .presence-actions {
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+            .presence-controls {
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -108,7 +444,7 @@
         </div>
     </nav>
 
-    <div class="container my-5">
+    <div class="container my-5 dashboard-shell">
         <!-- Profile Header -->
         <div class="profile-header">
             <div class="container">
@@ -160,7 +496,7 @@
 
         <!-- Posts Section -->
         <div class="mb-5">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-3 section-header">
                 <h3>Your Posts</h3>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
                     <i class="bi bi-plus"></i> New Post
@@ -234,8 +570,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module">
-        import { updateMyProfile, uploadMyAvatar } from './assets/js/api.js';
+        import * as api from './assets/js/api.js';
         import { logout, requireAuth, saveUser } from './assets/js/auth.js';
+
+        const { updateMyProfile, uploadMyAvatar } = api;
 
         window.runLogout = logout;
 
@@ -307,6 +645,201 @@
             document.getElementById('displayName').value = user.displayName || '';
             document.getElementById('bioText').value = user.bio || '';
             document.getElementById('bioCount').textContent = (user.bio || '').length;
+        }
+
+        function formatPresence(minutesAgo) {
+            const value = Number(minutesAgo || 0);
+            if (value <= 1) {
+                return 'Just now';
+            }
+            if (value < 60) {
+                return `${value}m ago`;
+            }
+
+            const hours = Math.floor(value / 60);
+            if (hours < 24) {
+                return `${hours}h ago`;
+            }
+
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        }
+
+        let presenceUsers = [];
+
+        function ensurePeoplePresentContainer() {
+            let panel = document.getElementById('peoplePresentPanel');
+            if (panel) {
+                return panel;
+            }
+
+            panel = document.createElement('aside');
+            panel.id = 'peoplePresentPanel';
+            panel.innerHTML = `
+                <div class="presence-header">
+                    <div class="presence-title">
+                        <strong>People Present</strong>
+                        <small>Recently active</small>
+                    </div>
+                    <div class="presence-actions">
+                        <span id="peoplePresentCount" class="presence-pill">0 users</span>
+                        <button type="button" id="peoplePresentToggle" class="presence-toggle-btn" title="Collapse panel">−</button>
+                        <button type="button" id="peoplePresentRefresh" class="presence-refresh">Refresh</button>
+                    </div>
+                </div>
+                <div class="presence-controls">
+                    <input id="peoplePresentSearch" class="presence-search" type="text" placeholder="Search people...">
+                    <label class="presence-toggle">
+                        <input type="checkbox" id="peoplePresentOnlineOnly">
+                        Online only
+                    </label>
+                </div>
+                <div id="peoplePresentList">
+                    <div class="presence-empty">Loading...</div>
+                </div>
+            `;
+
+            document.body.appendChild(panel);
+
+            const toggle = panel.querySelector('#peoplePresentOnlineOnly');
+            if (toggle) {
+                toggle.addEventListener('change', applyPresenceFiltersAndRender);
+            }
+
+            const search = panel.querySelector('#peoplePresentSearch');
+            if (search) {
+                search.addEventListener('input', applyPresenceFiltersAndRender);
+            }
+
+            const refresh = panel.querySelector('#peoplePresentRefresh');
+            if (refresh) {
+                refresh.addEventListener('click', loadPeoplePresent);
+            }
+
+            const panelToggle = panel.querySelector('#peoplePresentToggle');
+            if (panelToggle) {
+                panelToggle.addEventListener('click', () => {
+                    panel.classList.toggle('is-collapsed');
+                    const collapsed = panel.classList.contains('is-collapsed');
+                    panelToggle.textContent = collapsed ? '+' : '−';
+                    panelToggle.title = collapsed ? 'Expand panel' : 'Collapse panel';
+                });
+            }
+
+            return panel;
+        }
+
+        function applyPresenceFiltersAndRender() {
+            const term = String(document.getElementById('peoplePresentSearch')?.value || '').trim().toLowerCase();
+            const onlineOnly = Boolean(document.getElementById('peoplePresentOnlineOnly')?.checked);
+
+            let filtered = [...presenceUsers];
+
+            if (onlineOnly) {
+                filtered = filtered.filter((user) => Boolean(user.isActive));
+            }
+
+            if (term) {
+                filtered = filtered.filter((user) => {
+                    const name = String(user.displayName || '').toLowerCase();
+                    const email = String(user.email || '').toLowerCase();
+                    return name.includes(term) || email.includes(term);
+                });
+            }
+
+            renderPeoplePresent(filtered);
+        }
+
+        function renderPeoplePresent(users) {
+            const list = document.getElementById('peoplePresentList');
+            const count = document.getElementById('peoplePresentCount');
+            if (!list) {
+                return;
+            }
+
+            if (count) {
+                count.textContent = `${users.length} user${users.length === 1 ? '' : 's'}`;
+            }
+
+            if (!Array.isArray(users) || users.length === 0) {
+                list.innerHTML = '<div class="presence-empty">No matching users</div>';
+                return;
+            }
+
+            list.innerHTML = users.map((user) => {
+                const displayName = escapeHtml(user.displayName || user.email?.split('@')[0] || 'User');
+                const role = escapeHtml((user.role || '').toUpperCase());
+                const statusClass = user.isActive ? 'online' : 'away';
+                const avatar = user.avatarUrl
+                    ? `<img class="presence-avatar" src="${escapeHtml(user.avatarUrl)}" alt="${displayName}">`
+                    : `<div class="presence-avatar-fallback">${escapeHtml((displayName.charAt(0) || 'U').toUpperCase())}</div>`;
+
+                return `
+                    <a class="presence-user" href="/user-profile.html?id=${Number(user.id || 0)}">
+                        <div class="presence-avatar-wrap">
+                            ${avatar}
+                            <span class="presence-dot ${statusClass}"></span>
+                        </div>
+                        <div class="presence-meta">
+                            <div class="presence-name">${displayName}</div>
+                            <div class="presence-sub">${role} • ${formatPresence(user.minutesAgo)}</div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        async function loadPeoplePresent() {
+            const panel = ensurePeoplePresentContainer();
+            const refreshButton = document.getElementById('peoplePresentRefresh');
+            const subtitle = panel?.querySelector('.presence-title small');
+
+            if (refreshButton) {
+                refreshButton.disabled = true;
+                refreshButton.textContent = 'Refreshing...';
+            }
+
+            if (subtitle) {
+                subtitle.textContent = 'Refreshing...';
+                subtitle.classList.remove('is-updated');
+            }
+
+            try {
+                let res;
+                if (typeof api.fetchPeoplePresent === 'function') {
+                    res = await api.fetchPeoplePresent(10, 24);
+                } else {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/users/present?limit=10&hours=24&_ts=${Date.now()}`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        cache: 'no-store'
+                    });
+                    res = await response.json();
+                }
+
+                presenceUsers = Array.isArray(res.data) ? res.data : [];
+                applyPresenceFiltersAndRender();
+
+                if (subtitle) {
+                    subtitle.textContent = 'Updated just now';
+                    subtitle.classList.add('is-updated');
+                }
+            } catch (err) {
+                const list = document.getElementById('peoplePresentList');
+                if (list) {
+                    list.innerHTML = '<div class="presence-empty">Unable to load presence right now</div>';
+                }
+
+                if (subtitle) {
+                    subtitle.textContent = 'Refresh failed';
+                    subtitle.classList.remove('is-updated');
+                }
+            } finally {
+                if (refreshButton) {
+                    refreshButton.disabled = false;
+                    refreshButton.textContent = 'Refresh';
+                }
+            }
         }
 
         async function loadDashboard() {
@@ -510,6 +1043,11 @@
         };
 
         loadDashboard();
+        loadPeoplePresent();
+
+        setInterval(() => {
+            loadPeoplePresent();
+        }, 30000);
     </script>
 </body>
 </html>

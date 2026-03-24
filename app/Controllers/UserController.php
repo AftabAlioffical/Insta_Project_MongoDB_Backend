@@ -217,6 +217,72 @@ class UserController
         return Response::send(Response::success($users));
     }
 
+    public static function getPeoplePresent()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            return Response::send(Response::error('Method not allowed', 405));
+        }
+
+        $auth = AuthMiddleware::verify();
+        if (!$auth['authenticated']) {
+            return Response::send(Response::error($auth['error'], 401));
+        }
+
+        $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 8;
+        $limit = max(1, min(20, $limit));
+
+        $hours = isset($_GET['hours']) ? intval($_GET['hours']) : 24;
+        $hours = max(1, min(168, $hours));
+
+        $db = Database::getInstance();
+
+        $activitySql =
+            'SELECT creator_id AS user_id, created_at AS activity_at FROM media WHERE created_at >= (NOW() - INTERVAL ' . intval($hours) . ' HOUR) ' .
+            'UNION ALL ' .
+            'SELECT user_id, created_at AS activity_at FROM comments WHERE created_at >= (NOW() - INTERVAL ' . intval($hours) . ' HOUR) ' .
+            'UNION ALL ' .
+            'SELECT user_id, created_at AS activity_at FROM likes WHERE created_at >= (NOW() - INTERVAL ' . intval($hours) . ' HOUR) ' .
+            'UNION ALL ' .
+            'SELECT user_id, created_at AS activity_at FROM ratings WHERE created_at >= (NOW() - INTERVAL ' . intval($hours) . ' HOUR)';
+
+        $users = $db->fetchAll(
+            'SELECT u.id,
+                    u.email,
+                    u.role,
+                    COALESCE(NULLIF(u.display_name, ""), SUBSTRING_INDEX(u.email, "@", 1)) AS displayName,
+                    u.avatar_url AS avatarUrl,
+                    MAX(a.activity_at) AS lastActiveAt,
+                    TIMESTAMPDIFF(MINUTE, MAX(a.activity_at), NOW()) AS minutesAgo
+             FROM users u
+             JOIN (' . $activitySql . ') a ON a.user_id = u.id
+             GROUP BY u.id, u.email, u.role, u.display_name, u.avatar_url
+             ORDER BY lastActiveAt DESC
+             LIMIT ' . intval($limit)
+        );
+
+        if (empty($users)) {
+            $users = $db->fetchAll(
+                'SELECT id,
+                        email,
+                        role,
+                        COALESCE(NULLIF(display_name, ""), SUBSTRING_INDEX(email, "@", 1)) AS displayName,
+                        avatar_url AS avatarUrl,
+                        updated_at AS lastActiveAt,
+                        TIMESTAMPDIFF(MINUTE, updated_at, NOW()) AS minutesAgo
+                 FROM users
+                 ORDER BY updated_at DESC
+                 LIMIT ' . intval($limit)
+            );
+        }
+
+        foreach ($users as &$user) {
+            $user['minutesAgo'] = max(0, intval($user['minutesAgo'] ?? 0));
+            $user['isActive'] = $user['minutesAgo'] <= 5;
+        }
+
+        return Response::send(Response::success($users));
+    }
+
     private static function fetchUserProfile($userId)
     {
         $db = Database::getInstance();

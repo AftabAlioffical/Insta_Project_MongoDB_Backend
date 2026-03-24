@@ -19,6 +19,7 @@ body {
     background-color: var(--ig-secondary);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
     color: var(--ig-primary);
+    overflow-x: hidden;
 }
 
 /* ========== NAVBAR STYLING ========== */
@@ -210,7 +211,129 @@ body {
 .feed-container {
     max-width: 600px;
     margin: 0 auto;
-    padding: 20px 0;
+    padding: 20px 16px 28px;
+    width: 100%;
+}
+
+.people-present-panel {
+    position: fixed;
+    top: 92px;
+    right: 20px;
+    width: 300px;
+    background: #fff;
+    border: 1px solid var(--ig-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    z-index: 900;
+}
+
+.people-present-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ig-border);
+}
+
+.people-present-header h6 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.people-present-header small {
+    color: var(--ig-text-light);
+    font-size: 12px;
+}
+
+.people-present-list {
+    padding: 6px;
+    max-height: 340px;
+    overflow-y: auto;
+}
+
+.people-present-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--ig-primary);
+}
+
+.people-present-item:hover {
+    background: var(--ig-secondary);
+}
+
+.people-present-avatar-wrap {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+}
+
+.people-present-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--ig-border);
+}
+
+.people-present-avatar-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #f09433, #dc2743, #bc1888);
+}
+
+.people-present-dot {
+    position: absolute;
+    right: 1px;
+    bottom: 1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+.people-present-dot.online {
+    background: #23c55e;
+}
+
+.people-present-dot.away {
+    background: #f59e0b;
+}
+
+.people-present-meta {
+    min-width: 0;
+}
+
+.people-present-name {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.people-present-sub {
+    font-size: 12px;
+    color: var(--ig-text-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.people-present-empty {
+    padding: 12px;
+    color: var(--ig-text-light);
+    font-size: 13px;
+    text-align: center;
 }
 
 .post-card {
@@ -255,12 +378,6 @@ body {
 .post-author-info small {
     color: var(--ig-text-light);
     font-size: 12px;
-}
-
-.post-options {
-    font-size: 20px;
-    cursor: pointer;
-    color: var(--ig-text-light);
 }
 
 .post-image {
@@ -427,6 +544,16 @@ body {
     color: var(--ig-primary);
 }
 
+.auth-shell {
+    min-height: 100vh;
+    padding: 24px 16px;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+}
+
 /* ========== ANIMATIONS ========== */
 @keyframes likeAnimation {
     0% {
@@ -495,21 +622,158 @@ body {
 }
 
 /* ========== RESPONSIVE ========== */
+@media (max-width: 992px) {
+    .instagram-navbar {
+        padding: 10px 0 12px;
+    }
+
+    .navbar-brand {
+        font-size: 24px;
+        letter-spacing: -1px;
+    }
+
+    .navbar-center {
+        gap: 10px;
+    }
+
+    .search-wrapper,
+    .search-icon {
+        width: min(100%, 240px);
+    }
+
+    .navbar-right {
+        gap: 16px;
+    }
+
+    .people-present-panel {
+        position: static;
+        width: auto;
+        margin: 12px 16px 0;
+    }
+}
+
 @media (max-width: 768px) {
+    .instagram-navbar .container-fluid {
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+        row-gap: 10px;
+    }
+
     .navbar-center {
         display: none;
     }
 
-    .search-icon {
-        display: none;
-    }
-
     .feed-container {
-        padding: 10px 0;
+        padding: 12px 0 24px;
     }
 
     .post-card {
         border-radius: 0;
         margin-bottom: 20px;
+    }
+
+    .people-present-panel {
+        position: static;
+        width: auto;
+        margin: 12px 10px 0;
+    }
+
+    .post-header,
+    .post-actions,
+    .add-comment-section {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .post-actions {
+        gap: 12px;
+        align-items: center;
+    }
+
+    .actions-left,
+    .actions-right {
+        gap: 10px;
+    }
+
+    .action-btn {
+        font-size: 20px;
+        padding: 4px 6px;
+    }
+
+    .comments-preview,
+    .post-caption,
+    .like-count,
+    .view-comments {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .comment-input-wrapper {
+        min-width: 0;
+    }
+
+    .modal-dialog {
+        margin: 0.75rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .instagram-navbar {
+        padding: 8px 0 10px;
+    }
+
+    .navbar-brand {
+        font-size: 22px;
+    }
+
+    .navbar-right {
+        gap: 12px;
+    }
+
+    .nav-icon {
+        font-size: 20px;
+    }
+
+    .user-avatar {
+        width: 30px;
+        height: 30px;
+    }
+
+    .feed-container {
+        padding-bottom: 20px;
+    }
+
+    .post-author-avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    .post-author-info h6,
+    .caption-text,
+    .comment-item {
+        font-size: 13px;
+    }
+
+    .add-comment-section {
+        flex-wrap: wrap;
+    }
+
+    .submit-comment-btn {
+        width: 100%;
+        text-align: right;
+    }
+
+    .people-present-header,
+    .people-present-list {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .auth-shell {
+        padding: 16px 12px;
+    }
+
+    .auth-card .card-body {
+        padding: 24px 18px !important;
     }
 }

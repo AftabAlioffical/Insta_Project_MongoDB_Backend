@@ -12,6 +12,7 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            padding: 20px 0;
         }
 
         .signup-container {
@@ -146,6 +147,34 @@
         .btn-google:hover {
             background-color: #111827;
             color: #fff;
+        }
+
+        @media (max-width: 576px) {
+            body {
+                padding: 12px 0;
+            }
+
+            .signup-container {
+                padding: 12px;
+            }
+
+            .card-body {
+                padding: 22px 18px;
+            }
+
+            .card-title {
+                margin-bottom: 22px;
+                font-size: 24px;
+            }
+
+            .signup-method {
+                flex-direction: column;
+            }
+
+            .divider::before,
+            .divider::after {
+                width: 32%;
+            }
         }
     </style>
 </head>

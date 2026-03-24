@@ -152,6 +152,14 @@ if (!$matched) {
             }
         }
 
+        // People present (recently active users)
+        if ($segments[0] === 'users' && isset($segments[1]) && $segments[1] === 'present') {
+            if ($requestMethod === 'GET') {
+                \App\Controllers\UserController::getPeoplePresent();
+                $matched = true;
+            }
+        }
+
         // Comments routes
         if ($segments[0] === 'comments' && is_numeric($segments[1])) {
             $commentId = $segments[1];

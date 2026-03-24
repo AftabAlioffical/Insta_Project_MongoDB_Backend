@@ -103,6 +103,14 @@ export async function searchUsers(query) {
     return request(`${API_BASE}/users/search?q=${encodeURIComponent(query)}`, { method: 'GET' });
 }
 
+export async function fetchPeoplePresent(limit = 8, hours = 24) {
+    const cacheBuster = Date.now();
+    return request(`${API_BASE}/users/present?limit=${encodeURIComponent(limit)}&hours=${encodeURIComponent(hours)}&_ts=${cacheBuster}`, {
+        method: 'GET',
+        cache: 'no-store'
+    });
+}
+
 export async function updateMyProfile(payload) {
     return request(`${API_BASE}/users/me`, {
         method: 'PUT',
